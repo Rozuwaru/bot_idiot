@@ -6,7 +6,7 @@ from aiogram.filters import Command
 from aiogram.enums import ParseMode
 
 # ВСТАВЬ СЮДА ТОКЕН ОТ @BotFather
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
+BOT_TOKEN = "8844907899:AAGGqIQscoqCFCYNt9F-ESOGaeyHOoo4YdI"
 
 logging.basicConfig(level=logging.INFO)
 
