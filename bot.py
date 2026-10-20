@@ -15,7 +15,7 @@ BOT_TOKEN = os.environ.get("BOT_TOKEN")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-# ЮЗЕРНЕЙМЫ АДМИНОВ
+# ЮЗЕРНЕЙМЫ АДМИНОВ БОТА (без @, регистр не имеет значения)
 ADMIN_USERNAMES = {"rozuwaru", "sanya_g", "nekit", "kostya", "amir"}
 DUEL_MUTE_TIME = 5 
 
@@ -60,8 +60,7 @@ def get_profile(user: types.User):
     
     if response.data and len(response.data) > 0:
         data = response.data[0]
-        # Проставляем значения по умолчанию для старых записей
-        if "coins" not in data: data["coins"] = 100
+        if "coins" not in data or data["coins"] is None: data["coins"] = 100
         if "items" not in data or data["items"] is None: data["items"] = []
         return data
     else:
@@ -70,8 +69,8 @@ def get_profile(user: types.User):
             "name": user.first_name,
             "xp": 0,
             "level": 1,
-            "coins": 100, # Стартовый баланс
-            "items": [],  # Купленные предметы
+            "coins": 100,
+            "items": [],
             "last_loot": 0.0,
             "wins": 0,
             "msgs": 0,
@@ -110,27 +109,52 @@ def is_admin(user: types.User) -> bool:
         return False
     return user.username.lower() in {u.lower() for u in ADMIN_USERNAMES}
 
-# --- СТАРТ И ХЕЛП ---
+# --- ПОЛНЫЙ СПИСОК КОМАНД (ДЛЯ ВСЕХ И АДМИНОВ) ---
 
 @dp.message(Command("start"))
 @dp.message(Command("help"))
-async def cmd_start(message: types.Message):
-    await message.answer(
-        "🎮 **Развлекательный RPG-Бот с экономикой!**\n\n"
-        "📌 **Профиль и Экономика:**\n"
-        "• `/me` — Профиль, монеты 🪙 и вещи.\n"
+@dp.message(Command("commands"))
+@dp.message(Command("all_commands"))
+async def cmd_all_commands(message: types.Message):
+    admin_block = ""
+    if is_admin(message.from_user):
+        admin_block = (
+            "\n\n🛡 **АДМИНСКИЕ КОМАНДЫ (Управление игроками):**\n"
+            "*(Применять ответом на сообщение пользователя)*\n"
+            "• `/add_xp <кол-во>` — Выдать XP.\n"
+            "• `/remove_xp <кол-во>` — Забрать XP.\n"
+            "• `/set_xp <кол-во>` — Установить точный XP.\n"
+            "• `/add_coins <кол-во>` — Выдать монеты 🪙.\n"
+            "• `/remove_coins <кол-во>` — Забрать монеты 🪙.\n"
+            "• `/set_coins <кол-во>` — Установить точный баланс монет.\n"
+            "• `/set_level <лвл>` — Изменить уровень игрока.\n"
+            "• `/clear_inv` — Очистить инвентарь игрока.\n"
+            "• `/reset_user` — Полный сброс всего прогресса игрока."
+        )
+
+    text = (
+        "📋 **ПОЛНЫЙ СПИСОК КОМАНД БОТА:**\n\n"
+        "👤 **Профиль и Экономика:**\n"
+        "• `/me` — Твой профиль, баланс монет 🪙 и снаряжение.\n"
         "• `/shop` — Магазин оружия, щитов и титулов.\n"
-        "• `/buy <id>` — Купить предмет из магазина.\n"
-        "• `/inv` — Инвентарь предметов.\n"
-        "• `/pay <сумма>` (ответом) — Перевести монеты.\n"
-        "• `/top` — Топ игроков по опыту и богатству.\n\n"
-        "⚔️ **Игры и Ивент:**\n"
-        "• `/duel` (ответом) — Дуэль на мут (снаряжение из магазина повышает шансы!).\n"
-        "• `/casino <ставка>` — Игры на монеты.\n"
-        "• `/roulette` — Русская рулетка.\n"
-        "• `/loot` — Ежедневный бокс с XP и монетами 🪙.\n",
-        parse_mode=ParseMode.MARKDOWN
+        "• `/buy <id>` — Купить предмет по номеру из магазина.\n"
+        "• `/inv` — Просмотр своего инвентаря.\n"
+        "• `/pay <сумма>` (ответом) — Перевести монеты другому игроку.\n"
+        "• `/top` — Таблица лучших и самых богатых игроков.\n"
+        "• `/loot` — Ежедневный забор бесплатных XP и монет.\n"
+        "• Ответь `+` на сообщение — Повысить репутацию игроку.\n\n"
+        "⚔️ **Игры и Ивенты:**\n"
+        "• `/duel` (ответом) — Вызвать на дуэль с мутом (предметы дают преимущество!).\n"
+        "• `/casino <ставка>` — Сыграть в казино на монеты 🪙.\n"
+        "• `/roulette` — Русская рулетка (риск мута за +100 XP).\n"
+        "• `/ball <вопрос>` — Задать вопрос шар судьбы.\n\n"
+        "💍 **Брак и Отношения:**\n"
+        "• `/marry` (ответом) — Сделать предложение человеку.\n"
+        "• `/divorce` — Развестись.\n"
+        "• `/partner` — Посмотреть свою половинку."
+        f"{admin_block}"
     )
+    await message.answer(text, parse_mode=ParseMode.MARKDOWN)
 
 # --- ОБРАБОТЧИК СООБЩЕНИЙ ЧАТА ---
 
@@ -138,8 +162,6 @@ async def cmd_start(message: types.Message):
 async def process_message_xp(message: types.Message):
     user_data = get_profile(message.from_user)
     user_data['msgs'] += 1
-    
-    # +1 монета за каждое сообщение
     user_data['coins'] = user_data.get('coins', 0) + 1
     update_profile(user_data['user_id'], {"msgs": user_data['msgs'], "coins": user_data['coins']})
     
@@ -181,8 +203,8 @@ async def cmd_buy(message: types.Message, command: CommandObject):
         
     item = SHOP_ITEMS[item_id]
     user_data = get_profile(message.from_user)
-    
     items_list = user_data.get("items") or []
+    
     if item["name"] in items_list:
         await message.reply("❌ У тебя уже есть этот предмет!")
         return
@@ -194,12 +216,8 @@ async def cmd_buy(message: types.Message, command: CommandObject):
     user_data["coins"] -= item["price"]
     items_list.append(item["name"])
     
-    update_profile(user_data["user_id"], {
-        "coins": user_data["coins"],
-        "items": items_list
-    })
-    
-    await message.reply(f"🎉 Ты успешно купил **{item['name']}**! Оно добавлено в твой инвентарь `/inv`!")
+    update_profile(user_data["user_id"], {"coins": user_data["coins"], "items": items_list})
+    await message.reply(f"🎉 Ты успешно купил **{item['name']}**! Посмотреть: `/inv`.")
 
 @dp.message(Command("inv"))
 async def cmd_inv(message: types.Message):
@@ -207,7 +225,7 @@ async def cmd_inv(message: types.Message):
     items_list = user_data.get("items") or []
     
     if not items_list:
-        await message.reply("🎒 Твой инвентарь пуст. Загляни в `/shop`!")
+        await message.reply("🎒 Твой инвентарь пуст. Купить предметы можно в `/shop`!")
         return
         
     items_str = "\n".join([f"• {it}" for it in items_list])
@@ -216,7 +234,7 @@ async def cmd_inv(message: types.Message):
 @dp.message(Command("pay"), F.reply_to_message)
 async def cmd_pay(message: types.Message, command: CommandObject):
     if not command.args or not command.args.isdigit():
-        await message.reply("⚠️ Укажи сумму перевода. Пример: `/pay 100` (ответом на сообщение)")
+        await message.reply("⚠️ Укажи сумму. Пример: `/pay 100` (ответом на сообщение)")
         return
         
     amount = int(command.args)
@@ -232,16 +250,14 @@ async def cmd_pay(message: types.Message, command: CommandObject):
         return
         
     target_data = get_profile(target_user)
-    
     sender["coins"] -= amount
     target_data["coins"] = target_data.get("coins", 0) + amount
     
     update_profile(sender["user_id"], {"coins": sender["coins"]})
     update_profile(target_data["user_id"], {"coins": target_data["coins"]})
-    
     await message.answer(f"💸 **{message.from_user.first_name}** перевёл `{amount}` 🪙 монет пользователю **{target_user.first_name}**!")
 
-# --- ПРОФИЛЬ ---
+# --- ПРОФИЛЬ И СТАТИСТИКА ---
 
 @dp.message(Command("me"))
 async def cmd_me(message: types.Message):
@@ -299,67 +315,91 @@ async def cmd_loot(message: types.Message):
     
     add_xp_and_coins(user_data, xp_amount=loot_xp, coins_amount=loot_coins)
     update_profile(user_data['user_id'], {"last_loot": now})
-    
     await message.reply(f"🎁 **Ежедневный Бокс!** Ты получил **+{loot_xp} XP** и **+{loot_coins} 🪙** монет!")
 
-# --- СИСТЕМА ДУЭЛЕЙ С УЧЕТОМ ЭКИПИРОВКИ ---
+# --- СЕМЬИ И СВАДЬБЫ ---
+
+@dp.message(Command("marry"), F.reply_to_message)
+async def cmd_marry(message: types.Message):
+    sender, target = message.from_user, message.reply_to_message.from_user
+    if sender.id == target.id or target.is_bot:
+        await message.reply("❌ Нельзя жениться на себе или боте!")
+        return
+        
+    s_data, t_data = get_profile(sender), get_profile(target)
+    if s_data.get('partner_id') or t_data.get('partner_id'):
+        await message.reply("❌ Кто-то из вас уже состоит в браке!")
+        return
+        
+    marry_requests[target.id] = sender.id
+    await message.answer(f"💍 **{sender.first_name}** делает предложение **{target.first_name}**!\nОтветь `согласен` на это сообщение.")
+
+@dp.message(F.reply_to_message, F.text.lower().in_({"согласен", "согласна", "да"}))
+async def handle_marry_accept(message: types.Message):
+    target = message.from_user
+    if target.id not in marry_requests: return
+        
+    sender_id = marry_requests[target.id]
+    sender_res = supabase.table("users").select("*").eq("user_id", sender_id).execute()
+    if not sender_res.data: return
+        
+    sender_data = sender_res.data[0]
+    update_profile(sender_id, {"partner_id": target.id, "partner_name": target.first_name})
+    update_profile(target.id, {"partner_id": sender_id, "partner_name": sender_data['name']})
+    await message.answer(f"🎉 **ПОЗДРАВЛЯЕМ!** **{sender_data['name']}** и **{target.first_name}** теперь в браке! 💍✨")
+    del marry_requests[target.id]
+
+@dp.message(Command("divorce"))
+async def cmd_divorce(message: types.Message):
+    user_data = get_profile(message.from_user)
+    partner_id = user_data.get('partner_id')
+    if not partner_id:
+        await message.reply("❌ Ты не состоишь в браке!")
+        return
+        
+    update_profile(user_data['user_id'], {"partner_id": 0, "partner_name": ""})
+    update_profile(partner_id, {"partner_id": 0, "partner_name": ""})
+    await message.reply("💔 Вы успешно развелись.")
+
+@dp.message(Command("partner"))
+async def cmd_partner(message: types.Message):
+    user_data = get_profile(message.from_user)
+    p_name = user_data.get('partner_name')
+    if p_name:
+        await message.reply(f"💍 Ваша половинка: **{p_name}**")
+    else:
+        await message.reply("💔 У тебя пока нет половинки. Сделай предложение командой `/marry`!")
+
+# --- ДУЭЛИ И АЗАРТ ---
 
 @dp.message(Command("duel"), F.reply_to_message)
 async def cmd_duel(message: types.Message):
-    challenger = message.from_user
-    target = message.reply_to_message.from_user
-    
+    challenger, target = message.from_user, message.reply_to_message.from_user
     if target.id == challenger.id or target.is_bot:
         await message.reply("❌ Нельзя дуэлиться с самим собой или ботом.")
         return
-    
-    if target.id in active_duels:
-        await message.reply("❌ Этот пользователь уже вызван на дуэль.")
-        return
-
+        
     active_duels[target.id] = {'challenger_id': challenger.id, 'time': time.time()}
-    await message.answer(
-        f"⚔ **{challenger.first_name}** вызывает **{target.first_name}** на смертельную дуэль!\n"
-        f"Ответь `да` в течение 60 секунд."
-    )
+    await message.answer(f"⚔ **{challenger.first_name}** вызывает **{target.first_name}** на смертельную дуэль!\nОтветь `да` в течение 60 секунд.")
 
 @dp.message(F.reply_to_message, F.text.lower() == "да")
 async def handle_duel_accept(message: types.Message):
     target = message.from_user
-    if target.id not in active_duels:
-        return
+    if target.id not in active_duels: return
     
     duel_data = active_duels[target.id]
     challenger_id = duel_data['challenger_id']
     
-    if time.time() - duel_data['time'] > 60:
-        await message.reply("⏱ Время вызова истекло.")
-        del active_duels[target.id]
-        return
-        
     c_res = supabase.table("users").select("*").eq("user_id", challenger_id).execute()
     c_data = c_res.data[0] if c_res.data else get_profile(types.User(id=challenger_id, first_name="Инициатор", is_bot=False))
     t_data = get_profile(target)
     
-    # Расчет бонусов снаряжения
-    c_items = c_data.get("items") or []
-    t_items = t_data.get("items") or []
+    c_items, t_items = c_data.get("items") or [], t_data.get("items") or []
+    c_bonus = (15 if "🛡 Щит Афины" in c_items else 0) + (20 if "🗡 Меч Хаоса" in c_items else 0) + (5 if "👑 Корона Чата" in c_items else 0)
+    t_bonus = (15 if "🛡 Щит Афины" in t_items else 0) + (20 if "🗡 Меч Хаоса" in t_items else 0) + (5 if "👑 Корона Чата" in t_items else 0)
     
-    c_bonus = 0
-    t_bonus = 0
-    
-    if "🛡 Щит Афины" in c_items: c_bonus += 15
-    if "🗡 Меч Хаоса" in c_items: c_bonus += 20
-    if "👑 Корона Чата" in c_items: c_bonus += 5
-    
-    if "🛡 Щит Афины" in t_items: t_bonus += 15
-    if "🗡 Меч Хаоса" in t_items: t_bonus += 20
-    if "👑 Корона Чата" in t_items: t_bonus += 5
-    
-    # Базовый шанс 50 + разница бонусов снаряжения
     challenger_win_chance = max(10, min(90, 50 + c_bonus - t_bonus))
-    
-    await message.answer(f"⚡️ Дуэль началась! Шансы: {c_data['name']} ({challenger_win_chance}%) vs {t_data['name']} ({100 - challenger_win_chance}%)...")
+    await message.answer(f"⚡️ Дуэль! Шансы: {c_data['name']} ({challenger_win_chance}%) vs {t_data['name']} ({100 - challenger_win_chance}%)...")
     await asyncio.sleep(2)
     
     if random.randint(1, 100) <= challenger_win_chance:
@@ -373,30 +413,22 @@ async def handle_duel_accept(message: types.Message):
     
     try:
         until_date = datetime.now() + timedelta(minutes=DUEL_MUTE_TIME)
-        await bot.restrict_chat_member(
-            message.chat.id, loser_id, 
-            permissions=types.ChatPermissions(can_send_messages=False),
-            until_date=until_date
-        )
-        await message.answer(f"🏆 **{winner_data['name']}** побеждает в дуэли, получает **+35 XP** и **+100 🪙** монет!\n💀 Проигравший отправлен в мут на {DUEL_MUTE_TIME} минут.")
+        await bot.restrict_chat_member(message.chat.id, loser_id, permissions=types.ChatPermissions(can_send_messages=False), until_date=until_date)
+        await message.answer(f"🏆 **{winner_data['name']}** победил, забирает **+35 XP** и **+100 🪙**!\n💀 Проигравший замучен на {DUEL_MUTE_TIME} минут.")
     except TelegramBadRequest:
         await message.answer(f"🏆 **{winner_data['name']}** побеждает в дуэли и забирает **+35 XP** и **+100 🪙**!")
 
     del active_duels[target.id]
 
-# --- КАЗИНО И ДРУГИЕ КОМАНДЫ ---
-
 @dp.message(Command("casino"))
 async def cmd_casino(message: types.Message, command: CommandObject):
     if not command.args or not command.args.isdigit():
-        await message.reply("⚠️ Укажи ставку монет 🪙. Пример: `/casino 50`")
+        await message.reply("⚠️ Пример: `/casino 50`")
         return
-        
     bet = int(command.args)
     user_data = get_profile(message.from_user)
-    
     if bet <= 0 or bet > user_data.get('coins', 0):
-        await message.reply("❌ Недостаточно монет 🪙 для такой ставки!")
+        await message.reply("❌ Недостаточно монет!")
         return
 
     if random.randint(1, 100) <= 45:
@@ -411,43 +443,101 @@ async def cmd_roulette(message: types.Message):
     user_data = get_profile(message.from_user)
     await message.answer("🎰 Крутим барабан...")
     await asyncio.sleep(2)
-    
     if random.randint(1, 6) == 1:
         try:
             until_date = datetime.now() + timedelta(minutes=3)
-            await bot.restrict_chat_member(
-                message.chat.id, message.from_user.id,
-                permissions=types.ChatPermissions(can_send_messages=False),
-                until_date=until_date
-            )
+            await bot.restrict_chat_member(message.chat.id, message.from_user.id, permissions=types.ChatPermissions(can_send_messages=False), until_date=until_date)
             await message.answer(f"💥 **ВЫСТРЕЛ!** **{message.from_user.first_name}** отправлен в мут на 3 минуты!")
         except TelegramBadRequest:
-            await message.answer(f"💥 **ВЫСТРЕЛ!** Но у меня нет прав замутить тебя.")
+            await message.answer("💥 **ВЫСТРЕЛ!** Но у меня нет прав замутить тебя.")
     else:
         add_xp_and_coins(user_data, xp_amount=50, coins_amount=150)
-        await message.answer(f"📊 **КЛИК!** Пустой барабан! Ты выжил и получил **+50 XP** и **+150 🪙** монет!")
+        await message.answer(f"📊 **КЛИК!** Пустой барабан! Выживший получает **+50 XP** и **+150 🪙**!")
 
 @dp.message(Command("ball"))
 async def cmd_ball(message: types.Message, command: CommandObject):
-    if not command.args:
-        await message.reply("🔮 Пример: `/ball Я стану богатым?`")
-        return
+    if not command.args: return
     await message.reply(f"🔮 {random.choice(BALL_ANSWERS)}")
 
-# --- АДМИН-КОМАНДЫ ДЛЯ МОНЕТ ---
+# --- ВСЕМОГУЩИЕ АДМИНСКИЕ КОМАНДЫ ---
+
+@dp.message(Command("add_xp"), F.reply_to_message)
+async def admin_add_xp(message: types.Message, command: CommandObject):
+    if not is_admin(message.from_user) or not command.args or not command.args.isdigit(): return
+    target_data = get_profile(message.reply_to_message.from_user)
+    add_xp_and_coins(target_data, xp_amount=int(command.args))
+    await message.answer(f"🛡 Админ выдал **+{command.args} XP** пользователю **{message.reply_to_message.from_user.first_name}**!")
+
+@dp.message(Command("remove_xp"), F.reply_to_message)
+async def admin_remove_xp(message: types.Message, command: CommandObject):
+    if not is_admin(message.from_user) or not command.args or not command.args.isdigit(): return
+    target_data = get_profile(message.reply_to_message.from_user)
+    add_xp_and_coins(target_data, xp_amount=-int(command.args))
+    await message.answer(f"🛡 Админ забрал **-{command.args} XP** у пользователя **{message.reply_to_message.from_user.first_name}**!")
+
+@dp.message(Command("set_xp"), F.reply_to_message)
+async def admin_set_xp(message: types.Message, command: CommandObject):
+    if not is_admin(message.from_user) or not command.args or not command.args.isdigit(): return
+    val = int(command.args)
+    target_data = get_profile(message.reply_to_message.from_user)
+    target_data['xp'] = val
+    update_profile(target_data['user_id'], {"xp": val})
+    await message.answer(f"🛡 Админ установил XP = **{val}** для **{message.reply_to_message.from_user.first_name}**!")
 
 @dp.message(Command("add_coins"), F.reply_to_message)
 async def admin_add_coins(message: types.Message, command: CommandObject):
-    if not is_admin(message.from_user): return
-    if not command.args or not command.args.isdigit(): return
-    amount = int(command.args)
+    if not is_admin(message.from_user) or not command.args or not command.args.isdigit(): return
     target_data = get_profile(message.reply_to_message.from_user)
-    add_xp_and_coins(target_data, coins_amount=amount)
-    await message.answer(f"🛡 Админ начислил **+{amount} 🪙** пользователю **{message.reply_to_message.from_user.first_name}**!")
+    add_xp_and_coins(target_data, coins_amount=int(command.args))
+    await message.answer(f"🛡 Админ выдал **+{command.args} 🪙** пользователю **{message.reply_to_message.from_user.first_name}**!")
+
+@dp.message(Command("remove_coins"), F.reply_to_message)
+async def admin_remove_coins(message: types.Message, command: CommandObject):
+    if not is_admin(message.from_user) or not command.args or not command.args.isdigit(): return
+    target_data = get_profile(message.reply_to_message.from_user)
+    add_xp_and_coins(target_data, coins_amount=-int(command.args))
+    await message.answer(f"🛡 Админ забрал **-{command.args} 🪙** у пользователя **{message.reply_to_message.from_user.first_name}**!")
+
+@dp.message(Command("set_coins"), F.reply_to_message)
+async def admin_set_coins(message: types.Message, command: CommandObject):
+    if not is_admin(message.from_user) or not command.args or not command.args.isdigit(): return
+    val = int(command.args)
+    target_data = get_profile(message.reply_to_message.from_user)
+    target_data['coins'] = val
+    update_profile(target_data['user_id'], {"coins": val})
+    await message.answer(f"🛡 Админ установил монеты = **{val} 🪙** для **{message.reply_to_message.from_user.first_name}**!")
+
+@dp.message(Command("set_level"), F.reply_to_message)
+async def admin_set_level(message: types.Message, command: CommandObject):
+    if not is_admin(message.from_user) or not command.args or not command.args.isdigit(): return
+    val = int(command.args)
+    target_data = get_profile(message.reply_to_message.from_user)
+    target_data['level'] = val
+    update_profile(target_data['user_id'], {"level": val})
+    await message.answer(f"🛡 Админ установил уровень = **{val}** для **{message.reply_to_message.from_user.first_name}**!")
+
+@dp.message(Command("clear_inv"), F.reply_to_message)
+async def admin_clear_inv(message: types.Message):
+    if not is_admin(message.from_user): return
+    target_data = get_profile(message.reply_to_message.from_user)
+    update_profile(target_data['user_id'], {"items": []})
+    await message.answer(f"🛡 Админ полностью очистил инвентарь пользователя **{message.reply_to_message.from_user.first_name}**!")
+
+@dp.message(Command("reset_user"), F.reply_to_message)
+async def admin_reset_user(message: types.Message):
+    if not is_admin(message.from_user): return
+    target_user = message.reply_to_message.from_user
+    
+    reset_data = {
+        "xp": 0, "level": 1, "coins": 100, "items": [],
+        "wins": 0, "partner_id": 0, "partner_name": ""
+    }
+    update_profile(target_user.id, reset_data)
+    await message.answer(f"💥 **ПОЛНЫЙ СБРОС!** Админ сбросил весь прогресс пользователя **{target_user.first_name}**!")
 
 # --- ЗАПУСК ---
 async def main():
-    print("Экономический RPG-Бот запущен...")
+    print("Супер-бот с полной панелью администратора запущен...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
