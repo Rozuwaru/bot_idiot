@@ -1,11 +1,13 @@
 import asyncio
 import random
 import logging
+import os
+from aiohttp import web
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
 
-# ВСТАВЬ СЮДА ТОКЕН ОТ @BotFather
+# Токен из переменной окружения или твой токен
 BOT_TOKEN = "8844907899:AAGGqIQscoqCFCYNt9F-ESOGaeyHOoo4YdI"
 
 logging.basicConfig(level=logging.INFO)
@@ -13,7 +15,7 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# Временная база данных в памяти (словарь: user_id -> {'name': str, 'karma': int})
+# Временная база данных в памяти
 karma_db = {}
 
 TITLES = [
@@ -25,7 +27,7 @@ TITLES = [
     "Скрытый гений 🧠"
 ]
 
-# --- КОМАНДЫ ---
+# --- КОМАНДЫ БОТА ---
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
@@ -39,18 +41,16 @@ async def cmd_start(message: types.Message):
         parse_mode=ParseMode.MARKDOWN
     )
 
-# Команда: Выбор «Героя дня»
 @dp.message(Command("who"))
 async def cmd_who(message: types.Message):
     title = random.choice(TITLES)
     target_user = message.reply_to_message.from_user if message.reply_to_message else message.from_user
     await message.answer(f"🎉 Сегодня **{target_user.first_name}** получает титул: **{title}**!", parse_mode=ParseMode.MARKDOWN)
 
-# Команда: Посмотреть ТОП репутации
 @dp.message(Command("top"))
 async def cmd_top(message: types.Message):
     if not karma_db:
-        await message.answer("📊 В этом чате пока никто не earned карму. Отвечайте `+` на сообщения друг друга!")
+        await message.answer("📊 В этом чате пока никто не набрал карму. Отвечайте `+` на сообщения друг друга!")
         return
 
     sorted_karma = sorted(karma_db.values(), key=lambda x: x['karma'], reverse=True)[:10]
@@ -61,7 +61,6 @@ async def cmd_top(message: types.Message):
         
     await message.answer(text, parse_mode=ParseMode.MARKDOWN)
 
-# Команды: Игры (Кубик и Дартс)
 @dp.message(Command("dice"))
 async def cmd_dice(message: types.Message):
     await message.answer_dice(emoji="🎲")
@@ -70,7 +69,7 @@ async def cmd_dice(message: types.Message):
 async def cmd_darts(message: types.Message):
     await message.answer_dice(emoji="🎯")
 
-# --- СИСТЕМА РЕПУТАЦИИ (Плюсики в карму) ---
+# --- СИСТЕМА РЕПУТАЦИИ ---
 
 TRIGGER_WORDS = ["+", "+1", "спасибо", "респект", "thx", "thanks", "спб"]
 
@@ -78,22 +77,18 @@ TRIGGER_WORDS = ["+", "+1", "спасибо", "респект", "thx", "thanks",
 async def handle_karma(message: types.Message):
     text = message.text.strip().lower() if message.text else ""
     
-    # Проверяем, есть ли триггерное слово
     if any(text == word or text.startswith(word + " ") for word in TRIGGER_WORDS):
         target_user = message.reply_to_message.from_user
         from_user = message.from_user
 
-        # Защита: нельзя давать карму самому себе
         if target_user.id == from_user.id:
             await message.reply("❌ Нельзя поднимать репутацию самому себе!")
             return
             
-        # Защита: нельзя давать карму ботам
         if target_user.is_bot:
             await message.reply("🤖 Ботам репутация не нужна!")
             return
 
-        # Начисление кармы
         user_data = karma_db.get(target_user.id, {"name": target_user.first_name, "karma": 0})
         user_data["karma"] += 1
         user_data["name"] = target_user.first_name
@@ -105,9 +100,26 @@ async def handle_karma(message: types.Message):
             parse_mode=ParseMode.MARKDOWN
         )
 
-# --- ЗАПУСК БОТА ---
+# --- ЗАГЛУШКА ВЕБ-СЕРВЕРА ДЛЯ RENDER (Web Service) ---
+async def handle_web(request):
+    return web.Response(text="Bot is running!")
 
+async def web_server():
+    app = web.Application()
+    app.router.add_get("/", handle_web)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    # Render передает порт через переменные окружения, по умолчанию берем 10000
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    print(f"Веб-сервер запущен на порту {port}")
+
+# --- ГЛАВНЫЙ ЗАПУСК ---
 async def main():
+    # Запускаем и веб-сервер для Render, и самого бота одновременно
+    await web_server()
     print("Бот запущен...")
     await dp.start_polling(bot)
 
