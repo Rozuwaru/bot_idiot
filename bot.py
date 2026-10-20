@@ -16,8 +16,8 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
 # ЮЗЕРНЕЙМЫ АДМИНОВ БОТА (без @, регистр не имеет значения)
-ADMIN_USERNAMES = {"rozuwaru", "sanya_g", "nekit", "kostya", "amir"}
-DUEL_MUTE_TIME = 5 
+ADMIN_USERNAMES = {"p0tat0777"}
+DUEL_MUTE_TIME = 3 
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
