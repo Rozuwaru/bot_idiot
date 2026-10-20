@@ -11,12 +11,12 @@ from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from supabase import create_client, Client
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN")
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
-SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+BOT_TOKEN = "8844907899:AAGGQlQscoqCFCYnt9F-ESOGaeyHOoo4Ydl"
+SUPABASE_URL = "https://cbypocbgeevwqhjahchy.supabase.co"
+SUPABASE_KEY = "sb_secret_-UrHMAqT_WUBb1xdj9fWTQ_TXK2GxGt"
 
-ADMIN_USERNAMES = {"rozuwaru", "sanya_g", "nekit", "kostya", "amir"}
-DUEL_MUTE_TIME = 5 
+ADMIN_USERNAMES = {"p0tat0777"}
+DUEL_MUTE_TIME = 3 
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
@@ -283,7 +283,7 @@ async def handle_duel_accept(message: types.Message):
     t_bonus = (15 if "🛡 Щит Афины" in (t_data.get("items") or []) else 0) + (20 if "🗡 Меч Хаоса" in (t_data.get("items") or []) else 0)
     c_chance = max(10, min(90, 50 + c_bonus - t_bonus))
     
-    await message.sleep_sec = asyncio.sleep(2)
+    await asyncio.sleep(2)
     winner, loser_id = (c_data, t_data['user_id']) if random.randint(1, 100) <= c_chance else (t_data, c_data['user_id'])
     winner['wins'] = winner.get('wins', 0) + 1
     add_xp_and_coins(winner, xp_amount=35, coins_amount=100)
