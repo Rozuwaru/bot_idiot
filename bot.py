@@ -97,6 +97,7 @@ LEVELS = {
 }
 
 WORK_COOLDOWNS = {}
+INTIMATE_COOLDOWNS = {}
 
 JOBS = {
     "1": {
@@ -236,8 +237,9 @@ async def cmd_all_commands(message: types.Message):
     text = (
         "📋 **КОМАНДЫ RPG БОТА:**\n\n"
         "👤 **Основные:** `/me`, `/shop`, `/buy <id>`, `/inv`, `/pay <сумма>`, `/top`, `/loot`, `/work`, `/levels`, `+` (ответом на сообщение)\n"
-        "⚔️ **Развлечения:** `/duel`, `/casino <ставка>`, `/roulette`, `/ball <вопрос>`\n"
-        "💍 **Отношения:** `/marry`, `/accept`, `/reject`, `/divorce`, `/partner`"
+        "🎰 **Казино и азарт:** `/casino <ставка>`, `/dice <ставка>`, `/slots <ставка>`\n"
+        "⚔️ **Развлечения:** `/duel`, `/ball <вопрос>`, `/kiss` (ответом)\n"
+        "💍 **Отношения:** `/marry`, `/accept`, `/reject`, `/divorce`, `/partner`, `/sex` (для пар)"
         f"{admin_block}"
     )
     await message.answer(text, parse_mode=ParseMode.MARKDOWN)
@@ -529,11 +531,12 @@ async def cmd_loot(message: types.Message):
     )
 
 
+# --- ВИДЫ КАЗИНО И ИГРЫ ---
 @dp.message(Command("casino"))
 async def cmd_casino(message: types.Message):
     args = message.text.split()
     if len(args) < 2:
-        await message.answer("Укажите ставку: `/casino <ставка>`", parse_mode=ParseMode.MARKDOWN)
+        await message.answer("Использование: `/casino <ставка>` (Классическая монетка)", parse_mode=ParseMode.MARKDOWN)
         return
 
     try:
@@ -550,12 +553,13 @@ async def cmd_casino(message: types.Message):
         return
 
     if random.random() > 0.5:
+        won = bet * 2
         new_coins = p["coins"] + bet
         await asyncio.to_thread(
             lambda: supabase.table("users").update({"coins": new_coins}).eq("user_id", p["user_id"]).execute()
         )
         await message.answer(
-            f"🎰 Поздравляем! Вы выиграли и получили `{bet}` монет! Баланс: `{new_coins}`",
+            f"🪙 **Монетка на стороне удачи!** Вы выиграли и получили `{bet}` монет сверху! Баланс: `{new_coins}`",
             parse_mode=ParseMode.MARKDOWN,
         )
     else:
@@ -564,14 +568,92 @@ async def cmd_casino(message: types.Message):
             lambda: supabase.table("users").update({"coins": new_coins}).eq("user_id", p["user_id"]).execute()
         )
         await message.answer(
-            f"🎰 Увы! Вы проиграли `{bet}` монет. Баланс: `{new_coins}`",
+            f"🪙 Монетка упала не туда... Вы проиграли `{bet}` монет. Баланс: `{new_coins}`",
             parse_mode=ParseMode.MARKDOWN,
         )
 
 
-@dp.message(Command("roulette"))
-async def cmd_roulette(message: types.Message):
-    await message.answer("🎯 Рулетка запущена!")
+@dp.message(Command("dice"))
+async def cmd_dice(message: types.Message):
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("Использование: `/dice <ставка>` (Нужно выбросить от 4 до 6)", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    try:
+        bet = int(args[1])
+        if bet <= 0:
+            raise ValueError()
+    except ValueError:
+        await message.answer("Некорректная ставка.")
+        return
+
+    p = await get_profile(message.from_user)
+    if p.get("coins", 0) < bet:
+        await message.answer("У вас нет столько монет для ставки!")
+        return
+
+    roll = random.randint(1, 6)
+    if roll >= 4:
+        won = bet * 2
+        new_coins = p["coins"] + bet
+        await asyncio.to_thread(
+            lambda: supabase.table("users").update({"coins": new_coins}).eq("user_id", p["user_id"]).execute()
+        )
+        await message.answer(
+            f"🎲 Вы выбросили `{roll}` из 6! Отличный бросок, вы выиграли `{bet}` монет сверху! Баланс: `{new_coins}`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+    else:
+        new_coins = p["coins"] - bet
+        await asyncio.to_thread(
+            lambda: supabase.table("users").update({"coins": new_coins}).eq("user_id", p["user_id"]).execute()
+        )
+        await message.answer(
+            f"🎲 Вы выбросили `{roll}` из 6. Увы, ставка не сыграла, вы потеряли `{bet}` монет. Баланс: `{new_coins}`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+
+
+@dp.message(Command("slots"))
+async def cmd_slots(message: types.Message):
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("Использование: `/slots <ставка>` (Игровой автомат)", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    try:
+        bet = int(args[1])
+        if bet <= 0:
+            raise ValueError()
+    except ValueError:
+        await message.answer("Некорректная ставка.")
+        return
+
+    p = await get_profile(message.from_user)
+    if p.get("coins", 0) < bet:
+        await message.answer("У вас нет столько монет для ставки!")
+        return
+
+    symbols = ["🍋", "🍒", "🍇", "🔔", "👑"]
+    s1, s2, s3 = random.choice(symbols), random.choice(symbols), random.choice(symbols)
+
+    if s1 == s2 == s3:
+        won = bet * 5
+        new_coins = p["coins"] + (bet * 4) # чистыми +4 ставки, итого x5
+        result = f"🎰 | {s1} | {s2} | {s3} |\n🎉 **ДЖЕКПОТ (x5)!** Вы выиграли аж `{bet * 4}` монет сверху!"
+    elif s1 == s2 or s2 == s3 or s1 == s3:
+        won = bet * 2
+        new_coins = p["coins"] + bet # чистыми +1 ставка, итого x2
+        result = f"🎰 | {s1} | {s2} | {s3} |\n✨ **Удача (x2)!** Две одинаковые фигуры, вы выиграли `{bet}` монет сверху!"
+    else:
+        new_coins = p["coins"] - bet
+        result = f"🎰 | {s1} | {s2} | {s3} |\n❌ Ничего не совпало. Вы потеряли `{bet}` монет."
+
+    await asyncio.to_thread(
+        lambda: supabase.table("users").update({"coins": new_coins}).eq("user_id", p["user_id"]).execute()
+    )
+    await message.answer(f"{result}\n💰 Баланс: `{new_coins}`", parse_mode=ParseMode.MARKDOWN)
 
 
 @dp.message(Command("ball"))
@@ -595,7 +677,25 @@ async def cmd_duel(message: types.Message):
     )
 
 
-# --- ОТНОШЕНИЯ И БРАКИ ---
+# --- ПОЦЕЛУИ ДЛЯ ВСЕХ ---
+@dp.message(Command("kiss"))
+async def cmd_kiss(message: types.Message):
+    if not message.reply_to_message:
+        await message.answer("💋 Чтобы поцеловать пользователя, ответьте на его сообщение командой `/kiss`.", parse_mode=ParseMode.MARKDOWN)
+        return
+    
+    target_user = message.reply_to_message.from_user
+    if target_user.id == message.from_user.id:
+        await message.answer("Себя не поцелуешь! 😄")
+        return
+
+    await message.answer(
+        f"💋 **{message.from_user.first_name}** нежно целует **{target_user.first_name}**! 💕",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+
+# --- ОТНОШЕНИЯ, БРАКИ И ПОЛОВАЯ ЖИЗНЬ ---
 @dp.message(Command("marry"))
 async def cmd_marry(message: types.Message):
     if not message.reply_to_message:
@@ -721,7 +821,62 @@ async def cmd_divorce(message: types.Message):
     await message.answer("💔 Вы успешно расторгли брак.", parse_mode=ParseMode.MARKDOWN)
 
 
-# --- ПОЛНОЦЕННЫЕ АДМИНСКИЕ КОМАНДЫ ---
+@dp.message(Command("sex"))
+async def cmd_sex(message: types.Message):
+    uid = str(message.from_user.id)
+    p = await get_profile(message.from_user)
+    
+    partner_id = p.get("partner_id")
+    partner_name = p.get("partner_name")
+    
+    if not partner_id or str(partner_id) == "0" or not partner_name or partner_name == "EMPTY":
+        await message.answer("🛏️ Эта команда доступна только тем, кто состоит в браке! Найдите пару через `/marry`.", parse_mode=ParseMode.MARKDOWN)
+        return
+        
+    now = time.time()
+    last_time = INTIMATE_COOLDOWNS.get(uid, 0)
+    cooldown = 600 
+    if now - last_time < cooldown:
+        remaining = int(cooldown - (now - last_time))
+        mins = remaining // 60
+        secs = remaining % 60
+        await message.answer(
+            f"⏳ Вы еще не восстановили силы для уединения! Отдохните еще `{mins} мин. {secs} сек.`",
+            parse_mode=ParseMode.MARKDOWN,
+        )
+        return
+        
+    INTIMATE_COOLDOWNS[uid] = now
+    
+    earned_coins = random.randint(50, 150)
+    earned_xp = 25
+    
+    new_coins = p.get("coins", 0) + earned_coins
+    new_xp = p.get("xp", 0) + earned_xp
+    current_level = p.get("level", 1)
+    
+    new_level = current_level
+    for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
+        if new_xp >= data["xp"]:
+            new_level = lvl
+            
+    await asyncio.to_thread(
+        lambda: supabase.table("users").update({
+            "coins": new_coins,
+            "xp": new_xp,
+            "level": new_level
+        }).eq("user_id", uid).execute()
+    )
+    
+    await message.answer(
+        f"🔥 **{message.from_user.first_name}** и **{partner_name}** уединились в романтической обстановке... 😏💕\n"
+        f"🪙 Заработано монет: `{earned_coins}`\n"
+        f"✨ Получено опыта: `+{earned_xp} XP`",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+
+# --- АДМИНСКИЕ КОМАНДЫ ---
 async def verify_admin(message: types.Message) -> bool:
     if not is_admin(message.from_user):
         await message.answer("❌ У вас нет прав администратора.")
@@ -957,8 +1112,12 @@ async def main():
         BotCommand(command="levels", description="Таблица уровней и гайд"),
         BotCommand(command="work", description="Биржа труда (работа)"),
         BotCommand(command="duel", description="Дуэль с игроком"),
-        BotCommand(command="casino", description="Сыграть в казино"),
+        BotCommand(command="casino", description="Казино (монетка)"),
+        BotCommand(command="dice", description="Игра в кости"),
+        BotCommand(command="slots", description="Игровой автомат (слоты)"),
+        BotCommand(command="kiss", description="Поцеловать игрока"),
         BotCommand(command="marry", description="Сделать предложение"),
+        BotCommand(command="sex", description="Уединиться с партнером"),
         BotCommand(command="partner", description="Моя вторая половинка"),
         BotCommand(command="help", description="Все команды бота"),
     ])
