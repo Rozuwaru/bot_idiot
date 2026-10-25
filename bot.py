@@ -165,7 +165,10 @@ async def get_profile(user: types.User):
         "username": user.username or user.first_name,
         "coins": 100, "xp": 0, "level": 1, "respect": 0,
         "partner_id": 0, "partner_name": "EMPTY",
-        "inventory": ""
+        "inventory": "",
+        "personal_apartment": "❌ Нет",
+        "personal_house": "❌ Нет",
+        "personal_car": "❌ Нет"
     }
     def _insert():
         return supabase.table("users").insert(new_user).execute()
@@ -201,15 +204,16 @@ async def get_or_create_family(uid1: str, uid2: str):
     ins_res = await asyncio.to_thread(_insert)
     return ins_res.data[0] if ins_res.data else new_fam
 
-def get_main_keyboard():
+def get_main_keyboard(user_id: int):
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"),
-         InlineKeyboardButton(text="🎒 Инвентарь", callback_data="menu_inv")],
-        [InlineKeyboardButton(text="🛒 Магазины", callback_data="menu_shops"),
-         InlineKeyboardButton(text="🏆 Топ игроков", callback_data="menu_top")],
-        [InlineKeyboardButton(text="💼 Биржа труда", callback_data="menu_work"),
-         InlineKeyboardButton(text="🎰 Казино и игры", callback_data="menu_casino")],
-        [InlineKeyboardButton(text="💍 Отношения и Семья", callback_data="menu_marry")]
+        [InlineKeyboardButton(text="👤 Профиль", callback_data=f"menu_profile_{user_id}"),
+         InlineKeyboardButton(text="🎒 Инвентарь", callback_data=f"menu_inv_{user_id}")],
+        [InlineKeyboardButton(text="🛒 Магазины", callback_data=f"menu_shops_{user_id}"),
+         InlineKeyboardButton(text="🏠 Личное имущество", callback_data=f"menu_personal_{user_id}")],
+        [InlineKeyboardButton(text="🏆 Топ игроков", callback_data=f"menu_top_{user_id}"),
+         InlineKeyboardButton(text="💼 Биржа труда", callback_data=f"menu_work_{user_id}")],
+        [InlineKeyboardButton(text="🎰 Казино и игры", callback_data=f"menu_casino_{user_id}"),
+         InlineKeyboardButton(text="💍 Отношения и Семья", callback_data=f"menu_marry_{user_id}")]
     ])
 
 @dp.message(Command(commands=["start", "help", "menu"]))
@@ -217,23 +221,22 @@ async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
     await get_profile(message.from_user)
     text = (
-        "🎮 **ДОБРО ПОЖАЛОВАТЬ В RPG БОТ!**\n\n"
-        "Используйте кнопки ниже для управления персонажем, покупки товаров и участия в развлечениях."
+        f"👤 **Меню игрока: {message.from_user.first_name}**\n\n"
+        "🎮 Добро пожаловать в RPG бот!\n"
+        "Используйте кнопки ниже для управления персонажем, покупки имущества и участия в развлечениях."
     )
-    if message.text and message.text.startswith("/start"):
-        await message.answer(text, reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
-    else:
-        try:
-            await message.edit_text(text, reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
-        except Exception:
-            await message.answer(text, reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
+    await message.answer(text, reply_markup=get_main_keyboard(message.from_user.id), parse_mode=ParseMode.MARKDOWN)
 
-@dp.callback_query(F.data == "back_home")
+@dp.callback_query(F.data.startswith("back_home_"))
 async def callback_back_home(callback: types.CallbackQuery, state: FSMContext):
+    uid_str = callback.data.split("_")[2]
+    if str(callback.from_user.id) != uid_str:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
     try:
         await state.clear()
-        text = "🎮 **ГЛАВНОЕ МЕНЮ:**"
-        await callback.message.edit_text(text, reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
+        text = f"👤 **Меню игрока: {callback.from_user.first_name}**\n\n🎮 **ГЛАВНОЕ МЕНЮ:**"
+        await callback.message.edit_text(text, reply_markup=get_main_keyboard(callback.from_user.id), parse_mode=ParseMode.MARKDOWN)
         await callback.answer()
     except Exception as e:
         logging.error(f"Error in back_home: {e}")
@@ -242,9 +245,17 @@ async def callback_back_home(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query(F.data.startswith("menu_"))
 async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
     try:
+        parts = callback.data.split("_")
+        action = parts[1]
+        owner_id = parts[2] if len(parts) > 2 else None
+        
+        if owner_id and str(callback.from_user.id) != owner_id:
+            await callback.answer("❌ Это не ваше меню! Введите /start чтобы открыть свое.", show_alert=True)
+            return
+
         await state.clear()
-        action = callback.data.split("_")[1]
         p = await get_profile(callback.from_user)
+        uid = callback.from_user.id
         
         if action == "profile":
             lvl = p.get('level', 1)
@@ -261,8 +272,8 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 f"{marriage}"
             )
             kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔄 Обновить", callback_data="menu_profile"),
-                 InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
+                [InlineKeyboardButton(text="🔄 Обновить", callback_data=f"menu_profile_{uid}"),
+                 InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
             ])
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
@@ -272,14 +283,14 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             
             if not items:
                 text = f"🎒 **Инвентарь игрока {p.get('username')}:**\n\nВаш инвентарь пуст."
-                kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]])
+                kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]])
             else:
                 text = f"🎒 **Инвентарь игрока {p.get('username')}:**\nНажмите на предмет, чтобы применить его эффект:\n\n"
                 buttons = []
                 for idx, item_key in enumerate(items):
                     item_info = SHOP_CONSUMABLES.get(item_key, {"name": item_key})
                     buttons.append([InlineKeyboardButton(text=f"🎁 Использовать: {item_info['name']}", callback_data=f"use_item_{idx}_{item_key}")])
-                buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")])
+                buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")])
                 kb = InlineKeyboardMarkup(inline_keyboard=buttons)
                 
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
@@ -287,9 +298,25 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
         elif action == "shops":
             text = "🛒 **ВЫБЕРИТЕ МАГАЗИН:**"
             kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⚔️ Снаряжение (авто-эффект)", callback_data="shop_eq_list")],
-                [InlineKeyboardButton(text="🍺 Продукты и ПК (в инвентарь)", callback_data="shop_cons_list")],
-                [InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
+                [InlineKeyboardButton(text="⚔️ Снаряжение (авто-эффект)", callback_data=f"shop_eq_list_{uid}")],
+                [InlineKeyboardButton(text="🍺 Продукты и ПК (в инвентарь)", callback_data=f"shop_cons_list_{uid}")],
+                [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
+            ])
+            await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+
+        elif action == "personal":
+            text = (
+                f"🏠 **ЛИЧНОЕ ИМУЩЕСТВО ИГРОКА {p.get('username')}**\n\n"
+                f"🏢 Квартира: `{p.get('personal_apartment', '❌ Нет')}`\n"
+                f"🏡 Дом: `{p.get('personal_house', '❌ Нет')}`\n"
+                f"🚗 Машина: `{p.get('personal_car', '❌ Нет')}`\n\n"
+                f"👇 Выберите категорию для покупки:"
+            )
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🏢 Купить квартиру", callback_data=f"pers_shop_apt_{uid}"),
+                 InlineKeyboardButton(text="🏡 Купить дом", callback_data=f"pers_shop_house_{uid}")],
+                [InlineKeyboardButton(text="🚗 Купить машину", callback_data=f"pers_shop_car_{uid}")],
+                [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
             ])
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
@@ -305,7 +332,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                     text += f"{i}. **{u.get('username')}** — Ур. `{lvl}` (*{title}*) | 🪙 `{u.get('coins')}`\n"
             else:
                 text += "Игроков пока нет."
-            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]])
+            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]])
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
         elif action == "work":
@@ -315,18 +342,19 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 [InlineKeyboardButton(text="🛡 Стражник (60-130 🪙)", callback_data="do_work_2")],
                 [InlineKeyboardButton(text="🧪 Алхимик (90-180 🪙)", callback_data="do_work_3")],
                 [InlineKeyboardButton(text="🐉 Охотник (130-260 🪙)", callback_data="do_work_4")],
-                [InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
+                [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
             ])
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
         elif action == "casino":
             text = (
                 "🎰 **КАЗИНО И ИГРЫ:**\n\n"
-                "Используйте команды в чате с нативной анимацией Telegram:\n"
-                "• `/dice <ставка> <числа 1-6>` (Бросок кубика)\n"
-                "• `/slots <ставка>` (Игровой автомат / слоты)"
+                "Доступные игры в чате:\n"
+                "• `/dice <ставка> <числа от 1 до 6>` (Кубик, можно до 3 чисел!\n  Пример: `/dice 100 2 5 6` | 1 число х6, 2 числа х3, 3 числа х2)\n"
+                "• `/coin <ставка> <орел/решка>` (Монетка 50/50, x2)\n"
+                "• `/slots <ставка>` (Слоты)"
             )
-            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]])
+            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]])
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
         elif action == "marry":
@@ -337,12 +365,12 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                     [InlineKeyboardButton(text="🏡 Меню семьи", callback_data="family_main"),
                      InlineKeyboardButton(text="🔥 Уединиться (/sex)", callback_data="action_sex")],
                     [InlineKeyboardButton(text="💔 Развестись (/divorce)", callback_data="action_divorce"),
-                     InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
+                     InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
                 ])
             else:
                 text = f"💍 **ОТНОШЕНИЯ И СЕМЬЯ:**\n\n💍 Вы свободны. Сделайте предложение через реплай и `/marry`"
                 kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
+                    [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
                 ])
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
@@ -350,6 +378,84 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
     except Exception as e:
         logging.error(f"Error in callback_main_menu: {e}")
         await callback.answer("❌ Произошла ошибка!", show_alert=True)
+
+# --- МАГАЗИН ЛИЧНОГО ИМУЩЕСТВА ---
+@dp.callback_query(F.data.startswith("pers_shop_apt_"))
+async def pers_shop_apt(callback: types.CallbackQuery):
+    uid = callback.data.split("_")[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+    buttons = []
+    for k, v in APARTMENTS_CAT.items():
+        buttons.append([InlineKeyboardButton(text=f"{v['name']} — {v['price']} 🪙", callback_data=f"pers_buy_apt_{k}_{uid}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Назад к имуществу", callback_data=f"menu_personal_{uid}")])
+    await callback.message.edit_text("🏢 **ЛИЧНЫЙ РЫНОК КВАРТИР:**\nВыберите вариант для покупки:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+
+@dp.callback_query(F.data.startswith("pers_shop_house_"))
+async def pers_shop_house(callback: types.CallbackQuery):
+    uid = callback.data.split("_")[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+    buttons = []
+    for k, v in HOUSES_CAT.items():
+        buttons.append([InlineKeyboardButton(text=f"{v['name']} — {v['price']} 🪙", callback_data=f"pers_buy_house_{k}_{uid}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Назад к имуществу", callback_data=f"menu_personal_{uid}")])
+    await callback.message.edit_text("🏡 **ЛИЧНЫЙ РЫНОК ДОМОВ:**\nВыберите загородную недвижимость:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+
+@dp.callback_query(F.data.startswith("pers_shop_car_"))
+async def pers_shop_car(callback: types.CallbackQuery):
+    uid = callback.data.split("_")[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+    buttons = []
+    for k, v in CARS_CAT.items():
+        buttons.append([InlineKeyboardButton(text=f"{v['name']} — {v['price']} 🪙", callback_data=f"pers_buy_car_{k}_{uid}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Назад к имуществу", callback_data=f"menu_personal_{uid}")])
+    await callback.message.edit_text("🚗 **ЛИЧНЫЙ АВТОСАЛОН:**\nВыберите автомобиль:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+
+@dp.callback_query(F.data.startswith("pers_buy_"))
+async def pers_buy_item(callback: types.CallbackQuery, state: FSMContext):
+    parts = callback.data.split("_")
+    category = parts[2] # apt, house, car
+    item_key = parts[3]
+    uid = parts[4]
+    
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+        
+    p = await get_profile(callback.from_user)
+    item_data = {}
+    col_name = ""
+    if category == "apt":
+        item_data = APARTMENTS_CAT[f"apt_{item_key}"] if f"apt_{item_key}" in APARTMENTS_CAT else APARTMENTS_CAT[item_key] # fallback
+        col_name = "personal_apartment"
+    elif category == "house":
+        item_data = HOUSES_CAT[f"house_{item_key}"] if f"house_{item_key}" in HOUSES_CAT else HOUSES_CAT[item_key]
+        col_name = "personal_house"
+    elif category == "car":
+        item_data = CARS_CAT[f"car_{item_key}"] if f"car_{item_key}" in CARS_CAT else CARS_CAT[item_key]
+        col_name = "personal_car"
+        
+    if p.get("coins", 0) < item_data["price"]:
+        await callback.answer(f"❌ Недостаточно монет! Нужно {item_data['price']} 🪙", show_alert=True)
+        return
+        
+    new_coins = p["coins"] - item_data["price"]
+    await asyncio.to_thread(lambda: supabase.table("users").update({
+        "coins": new_coins,
+        col_name: item_data["name"]
+    }).eq("user_id", str(uid)).execute())
+    
+    await callback.answer(f"🎉 Успешно куплено: {item_data['name']}!", show_alert=True)
+    
+    # Возврат в меню личного имущества
+    callback.data = f"menu_personal_{uid}"
+    await callback_main_menu(callback, state)
+
 
 # --- РАСШИРЕННОЕ МЕНЮ СЕМЬИ ---
 @dp.callback_query(F.data == "family_main")
@@ -363,6 +469,7 @@ async def callback_family_main(callback: types.CallbackQuery, state: FSMContext)
             return
         
         fam = await get_or_create_family(callback.from_user.id, pid)
+        uid = callback.from_user.id
         
         text = (
             f"🏡 **СЕМЕЙНЫЙ ОЧАГ И ИМУЩЕСТВО**\n\n"
@@ -384,7 +491,7 @@ async def callback_family_main(callback: types.CallbackQuery, state: FSMContext)
              InlineKeyboardButton(text="👶 Завести ребенка (1000 🪙)", callback_data="fam_buy_child")],
             [InlineKeyboardButton(text="🍼 Покормить ребенка", callback_data="fam_feed_child"),
              InlineKeyboardButton(text="🧸 Поиграть с ребенком", callback_data="fam_play_child")],
-            [InlineKeyboardButton(text="🔙 Назад к отношениям", callback_data="menu_marry")]
+            [InlineKeyboardButton(text="🔙 Назад к отношениям", callback_data=f"menu_marry_{uid}")]
         ])
         await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
         await callback.answer()
@@ -550,82 +657,84 @@ async def process_child_name(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer(f"🎉 Поздравляем! У вас родился ребенок по имени **{child_name}**! 👶🍼", parse_mode=ParseMode.MARKDOWN)
 
-@dp.callback_query(F.data == "shop_eq_list")
+@dp.callback_query(F.data.startswith("shop_eq_list_"))
 async def callback_shop_eq(callback: types.CallbackQuery):
-    try:
-        text = "⚔️ **СНАРЯЖЕНИЕ (эффект сразу):**\n\n"
-        buttons = []
-        for item_id, data in SHOP_EQUIPMENT.items():
-            buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']} 🪙", callback_data=f"buy_eq_{item_id}")])
-        buttons.append([InlineKeyboardButton(text="🔙 К магазинам", callback_data="menu_shops")])
-        kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-        await callback.answer()
-    except Exception as e:
-        logging.error(f"Error in shop_eq_list: {e}")
-        await callback.answer("❌ Ошибка!", show_alert=True)
+    uid = callback.data.split("_")[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+    text = "⚔️ **СНАРЯЖЕНИЕ (эффект сразу):**\n\n"
+    buttons = []
+    for item_id, data in SHOP_EQUIPMENT.items():
+        buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']} 🪙", callback_data=f"buy_eq_{item_id}_{uid}")])
+    buttons.append([InlineKeyboardButton(text="🔙 К магазинам", callback_data=f"menu_shops_{uid}")])
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+    await callback.answer()
 
-@dp.callback_query(F.data == "shop_cons_list")
+@dp.callback_query(F.data.startswith("shop_cons_list_"))
 async def callback_shop_cons(callback: types.CallbackQuery):
-    try:
-        text = "🍺 **ПРОДУКТЫ И ТЕХНИКА (в инвентарь):**\n\n"
-        buttons = []
-        for item_id, data in SHOP_CONSUMABLES.items():
-            buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']} 🪙", callback_data=f"buy_cons_{item_id}")])
-        buttons.append([InlineKeyboardButton(text="🔙 К магазинам", callback_data="menu_shops")])
-        kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-        await callback.answer()
-    except Exception as e:
-        logging.error(f"Error in shop_cons_list: {e}")
-        await callback.answer("❌ Ошибка!", show_alert=True)
+    uid = callback.data.split("_")[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+    text = "🍺 **ПРОДУКТЫ И ТЕХНИКА (в инвентарь):**\n\n"
+    buttons = []
+    for item_id, data in SHOP_CONSUMABLES.items():
+        buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']} 🪙", callback_data=f"buy_cons_{item_id}_{uid}")])
+    buttons.append([InlineKeyboardButton(text="🔙 К магазинам", callback_data=f"menu_shops_{uid}")])
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+    await callback.answer()
 
 @dp.callback_query(F.data.startswith("buy_eq_"))
 async def callback_buy_eq(callback: types.CallbackQuery):
-    try:
-        item_id = callback.data.replace("buy_eq_", "", 1)
-        item = SHOP_EQUIPMENT[item_id]
-        p = await get_profile(callback.from_user)
+    parts = callback.data.split("_")
+    item_id = f"{parts[2]}_{parts[3]}"
+    uid = parts[4]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+    item = SHOP_EQUIPMENT[item_id]
+    p = await get_profile(callback.from_user)
+    
+    if p.get("coins", 0) < item["price"]:
+        await callback.answer("❌ Недостаточно монет!", show_alert=True)
+        return
         
-        if p.get("coins", 0) < item["price"]:
-            await callback.answer("❌ Недостаточно монет!", show_alert=True)
-            return
-            
-        new_coins = p["coins"] - item["price"]
-        new_xp, new_respect = p.get("xp", 0), p.get("respect", 0)
-        if item["effect_type"] == "xp": new_xp += item["value"]
-        elif item["effect_type"] == "respect": new_respect += item["value"]
+    new_coins = p["coins"] - item["price"]
+    new_xp, new_respect = p.get("xp", 0), p.get("respect", 0)
+    if item["effect_type"] == "xp": new_xp += item["value"]
+    elif item["effect_type"] == "respect": new_respect += item["value"]
+    
+    new_level = p.get("level", 1)
+    for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
+        if new_xp >= data["xp"]: new_level = lvl
         
-        new_level = p.get("level", 1)
-        for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
-            if new_xp >= data["xp"]: new_level = lvl
-            
-        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "respect": new_respect, "level": new_level}).eq("user_id", p["user_id"]).execute())
-        await callback.answer(f"✅ Куплено: {item['name']}!", show_alert=True)
-    except Exception as e:
-        logging.error(f"Error in buy_eq: {e}")
-        await callback.answer("❌ Ошибка при покупке!", show_alert=True)
+    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "respect": new_respect, "level": new_level}).eq("user_id", str(uid)).execute())
+    await callback.answer(f"✅ Куплено: {item['name']}!", show_alert=True)
 
 @dp.callback_query(F.data.startswith("buy_cons_"))
 async def callback_buy_cons(callback: types.CallbackQuery):
-    try:
-        item_id = callback.data.replace("buy_cons_", "", 1)
-        item = SHOP_CONSUMABLES[item_id]
-        p = await get_profile(callback.from_user)
+    parts = callback.data.split("_")
+    item_id = f"{parts[2]}_{parts[3]}"
+    uid = parts[4]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+    item = SHOP_CONSUMABLES[item_id]
+    p = await get_profile(callback.from_user)
+    
+    if p.get("coins", 0) < item["price"]:
+        await callback.answer("❌ Недостаточно монет!", show_alert=True)
+        return
         
-        if p.get("coins", 0) < item["price"]:
-            await callback.answer("❌ Недостаточно монет!", show_alert=True)
-            return
-            
-        new_coins = p["coins"] - item["price"]
-        current_inv = p.get("inventory") or ""
-        updated_inv = f"{current_inv},{item_id}" if current_inv else item_id
-        
-        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "inventory": updated_inv}).eq("user_id", p["user_id"]).execute())
-        await callback.answer(f"✅ {item['name']} добавлен в инвентарь!", show_alert=True)
-    except Exception as e:
-        logging.error(f"Error in buy_cons: {e}")
-        await callback.answer("❌ Ошибка! Убедитесь, что в Supabase создана колонка inventory.", show_alert=True)
+    new_coins = p["coins"] - item["price"]
+    current_inv = p.get("inventory") or ""
+    updated_inv = f"{current_inv},{item_id}" if current_inv else item_id
+    
+    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "inventory": updated_inv}).eq("user_id", str(uid)).execute())
+    await callback.answer(f"✅ {item['name']} добавлен в инвентарь!", show_alert=True)
 
 @dp.callback_query(F.data.startswith("use_item_"))
 async def callback_use_item(callback: types.CallbackQuery):
@@ -721,14 +830,14 @@ async def callback_use_item(callback: types.CallbackQuery):
         items_up = [i.strip() for i in (p_updated.get("inventory") or "").split(",") if i.strip()]
         if not items_up:
             text = f"🎒 **Инвентарь игрока {p.get('username')}:**\n\nИнвентарь пуст."
-            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]])
+            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]])
         else:
             text = f"🎒 **Инвентарь игрока {p.get('username')}:**\n\n"
             buttons = []
             for idx, i_key in enumerate(items_up):
                 i_info = SHOP_CONSUMABLES.get(i_key, {"name": i_key})
                 buttons.append([InlineKeyboardButton(text=f"🎁 Использовать: {i_info['name']}", callback_data=f"use_item_{idx}_{i_key}")])
-            buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")])
+            buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")])
             kb = InlineKeyboardMarkup(inline_keyboard=buttons)
             
         await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
@@ -813,11 +922,13 @@ async def callback_action_divorce(callback: types.CallbackQuery):
             return
         await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY"}).eq("user_id", str(pid)).execute())
         await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY"}).eq("user_id", p["user_id"]).execute())
-        await callback.message.edit_text("💔 Развод успешно оформлен.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]]))
+        uid = callback.from_user.id
+        await callback.message.edit_text("💔 Развод успешно оформлен.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]]))
     except Exception as e:
         logging.error(f"Error in divorce: {e}")
         await callback.answer("❌ Ошибка при разводе!", show_alert=True)
 
+# --- ТЕКСТОВЫЕ КОМАНДЫ ---
 @dp.message(Command("me"))
 async def cmd_me(message: types.Message, state: FSMContext):
     await state.clear()
@@ -836,8 +947,8 @@ async def cmd_me(message: types.Message, state: FSMContext):
         f"{marriage}"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🛒 Магазины", callback_data="menu_shops"),
-         InlineKeyboardButton(text="🎒 Инвентарь", callback_data="menu_inv")]
+        [InlineKeyboardButton(text="🛒 Магазины", callback_data=f"menu_shops_{message.from_user.id}"),
+         InlineKeyboardButton(text="🎒 Инвентарь", callback_data=f"menu_inv_{message.from_user.id}")]
     ])
     await message.answer(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
 
@@ -846,8 +957,8 @@ async def cmd_shop(message: types.Message, state: FSMContext):
     await state.clear()
     text = "🛒 **МАГАЗИНЫ БОТА:**"
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⚔️ Снаряжение", callback_data="shop_eq_list"),
-         InlineKeyboardButton(text="🍺 Продукты и ПК", callback_data="shop_cons_list")]
+        [InlineKeyboardButton(text="⚔️ Снаряжение", callback_data=f"shop_eq_list_{message.from_user.id}"),
+         InlineKeyboardButton(text="🍺 Продукты и ПК", callback_data=f"shop_cons_list_{message.from_user.id}")]
     ])
     await message.answer(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
 
@@ -942,19 +1053,35 @@ async def give_respect(message: types.Message):
     await asyncio.to_thread(lambda: supabase.table("users").update({"respect": new_respect}).eq("user_id", str(target.id)).execute())
     await message.answer(f"👍 Респект **{target.first_name}** повышен! (`{new_respect}`)", parse_mode=ParseMode.MARKDOWN)
 
+# --- ИГРА В КУБИК (ДО 3 ЧИСЕЛ ОДНОВРЕМЕННО) ---
 @dp.message(Command("dice"))
 async def cmd_dice(message: types.Message, state: FSMContext):
     await state.clear()
     args = message.text.split()
     if len(args) < 3:
-        await message.answer("Использование: `/dice <ставка> <числа 1-6>`\nПример: `/dice 100 3 4 5`", parse_mode=ParseMode.MARKDOWN)
+        await message.answer(
+            "❌ Использование: `/dice <ставка> <числа от 1 до 6>`\n"
+            "Пример (поставить на три числа 2, 5, 6): `/dice 100 2 5 6`\n\n"
+            "📈 **Коэффициенты:**\n"
+            "• 1 число — **x6**\n"
+            "• 2 числа — **x3**\n"
+            "• 3 числа — **x2**", 
+            parse_mode=ParseMode.MARKDOWN
+        )
         return
     try:
         bet = int(args[1])
-        chosen = list(set([int(x) for x in args[2:]]))
-        if bet <= 0 or any(n < 1 or n > 6 for n in chosen): raise ValueError()
+        # Собираем уникальные числа от пользователя (от 1 до 3 штук)
+        chosen = []
+        for x in args[2:]:
+            num = int(x)
+            if 1 <= num <= 6 and num not in chosen:
+                chosen.append(num)
+                
+        if bet <= 0 or not (1 <= len(chosen) <= 3):
+            raise ValueError()
     except ValueError:
-        await message.answer("❌ Неверная ставка или числа! Числа должны быть от 1 до 6.", parse_mode=ParseMode.MARKDOWN)
+        await message.answer("❌ Ошибка! Ставка должна быть > 0, а чисел от 1 до 3 (каждое от 1 до 6, без повторов).", parse_mode=ParseMode.MARKDOWN)
         return
         
     p = await get_profile(message.from_user)
@@ -968,16 +1095,67 @@ async def cmd_dice(message: types.Message, state: FSMContext):
     await asyncio.sleep(3)
     
     coins = p["coins"] - bet
-    multipliers = {1: 6.0, 2: 3.0, 3: 2.0, 4: 1.5, 5: 1.2}
+    count = len(chosen)
+    multipliers = {1: 6.0, 2: 3.0, 3: 2.0}
+    mult = multipliers[count]
     
     if roll in chosen:
-        win = int(bet * multipliers[len(chosen)])
+        win = int(bet * mult)
         coins += win
+        profit = win - bet
         await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
-        await message.answer(f"🎲 Выпало **{roll}**! Победа! Вы выиграли `+{win - bet}` монет! 💰 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
+        await message.answer(f"🎲 Выпало **{roll}**! Вы угадали! 🎉 Вы выиграли `+{profit}` монет (множитель x{mult})! 💰 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
     else:
         await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
-        await message.answer(f"🎲 Выпало **{roll}**. Проигрыш `{bet}` монет. 💸 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
+        await message.answer(f"🎲 Выпало **{roll}**. К сожалению, вы проиграли `{bet}` монет. 💸 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
+
+# --- ИГРА МОНЕТКА (50/50) ---
+@dp.message(Command("coin"))
+async def cmd_coin(message: types.Message, state: FSMContext):
+    await state.clear()
+    args = message.text.split()
+    if len(args) < 3:
+        await message.answer(
+            "❌ Использование: `/coin <ставка> <орел/решка>`\n"
+            "Пример: `/coin 100 орел` (или `/coin 100 о` / `р`)", 
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+    try:
+        bet = int(args[1])
+        choice_input = args[2].lower()
+        if bet <= 0:
+            raise ValueError()
+            
+        if choice_input in ["орел", "о", "head", "heads"]:
+            user_choice = "орел"
+        elif choice_input in ["решка", "р", "tail", "tails"]:
+            user_choice = "решка"
+        else:
+            await message.answer("❌ Выберите сторону: `орел` или `решка` (можно сокращенно: `о` / `р`).", parse_mode=ParseMode.MARKDOWN)
+            return
+    except ValueError:
+        await message.answer("❌ Неверная ставка!", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    p = await get_profile(message.from_user)
+    if p.get("coins", 0) < bet:
+        await message.answer("❌ У вас недостаточно монет!")
+        return
+
+    result = random.choice(["орел", "решка"])
+    coins = p["coins"] - bet
+    
+    if user_choice == result:
+        win = bet * 2
+        coins += win
+        profit = win - bet
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+        await message.answer(f"🪙 Выпал **{result}**! Поздравляем, вы угадали и выиграли `+{profit}` монет! 🎉 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
+    else:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+        await message.answer(f"🪙 Выпал **{result}**. Вы проиграли `{bet}` монет. 💸 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
+
 
 @dp.message(Command("slots"))
 async def cmd_slots(message: types.Message, state: FSMContext):
