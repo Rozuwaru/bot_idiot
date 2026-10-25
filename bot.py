@@ -14,7 +14,7 @@ from supabase import create_client, Client
 # --- НАСТРОЙКИ (КЛЮЧИ И ТОКЕНЫ) ---
 BOT_TOKEN = "8844907899:AAH-5pSNsC4gV7vVSMoa6oyC6GHAGQgoH_w"
 SUPABASE_URL = "https://cbypocbgeevwqhjahchy.supabase.co"
-SUPABASE_KEY = "sb_secret_-UrHMAqT_WUBb1xdj9fWTQ_TXK2GxGt"
+SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNieXBvY2JnZWV2d3FoamFoY2h5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI1MDEzMTEsImV4cCI6MjEwODA3NzMxMX0.B2kKt2EeYidQ0a78EcZF83oJgoVE4gi1qIVnDUr4u34"
 
 ADMIN_USERNAMES = {"p0tat0777"}
 DUEL_MUTE_TIME = 3
