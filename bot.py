@@ -10,7 +10,7 @@ from aiogram.types import BotCommand
 from supabase import create_client, Client
 
 # --- НАСТРОЙКИ (КЛЮЧИ И ТОКЕНЫ) ---
-BOT_TOKEN = "8844907899:AAH-5pSNsC4gV7vVSMoa6oyC6GHAGQgoh_w"
+BOT_TOKEN = "8844907899:AAHWYb30wS3F4vnnzWdB8MrH_50TTqnBRpE"
 SUPABASE_URL = "https://cbypocbgeevwqhjahchy.supabase.co"
 SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNicXBvY2JnZWV3cWhqYWhjaHkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTczMDM1MTM3MiwiZXhwIjoyMDQ1OTExMzcyfQ.B2kKt2EeYidQ0a78EcZF83oJgOVE4gi1qlVnDUr4u34"
 
@@ -37,7 +37,6 @@ def get_profile(user: types.User):
   if response.data:
     return response.data[0]
 
-  # Создаем профиль по умолчанию, если его нет в базе
   new_user = {
       "user_id": uid,
       "username": user.username or user.first_name,
@@ -140,7 +139,6 @@ async def cmd_pay(message: types.Message):
 
   receiver = get_profile(receiver_user)
 
-  # Обновляем балансы
   supabase.table("users").update(
       {"coins": sender["coins"] - amount}
   ).eq("user_id", sender["user_id"]).execute()
@@ -209,7 +207,6 @@ async def cmd_buy(message: types.Message):
     await message.answer("Недостаточно монет для покупки!")
     return
 
-  # Списываем монеты
   supabase.table("users").update({"coins": p["coins"] - price}).eq(
       "user_id", p["user_id"]
   ).execute()
@@ -223,7 +220,7 @@ async def cmd_buy(message: types.Message):
 async def cmd_inv(message: types.Message):
   p = get_profile(message.from_user)
   await message.answer(
-      f"🎒 Инвентарь игрока **{p.get('username')}** пуст (или находится в разработке).",
+      f"🎒 Инвентарь игрока **{p.get('username')}** пуст.",
       parse_mode=ParseMode.MARKDOWN,
   )
 
@@ -284,9 +281,7 @@ async def cmd_casino(message: types.Message):
 
 @dp.message(Command("roulette"))
 async def cmd_roulette(message: types.Message):
-  await message.answer(
-      "🎯 Рулетка запущена! (Функция мини-игры доступна для кастомизации)."
-  )
+  await message.answer("🎯 Рулетка запущена!")
 
 
 @dp.message(Command("ball"))
@@ -315,7 +310,7 @@ async def cmd_duel(message: types.Message):
 @dp.message(Command("marry"))
 async def cmd_marry(message: types.Message):
   if not message.reply_to_message:
-    await message.answer("💍 Ответьте на сообщение пользователя, которому хотите сделать предложение.")
+    await message.answer("💍 Ответьте на сообщение пользователя для предложения.")
     return
   await message.answer(
       f"💍 **{message.from_user.first_name}** делает предложение"
@@ -368,7 +363,7 @@ async def admin_set_level(message: types.Message):
 @dp.message(F.text)
 async def process_message_xp(message: types.Message):
   if message.text.startswith("/"):
-    return  # Игнорируем команды
+    return
 
   uid = str(message.from_user.id)
   p = get_profile(message.from_user)
@@ -406,7 +401,6 @@ async def web_server():
 
 # --- ЗАПУСК БОТА ---
 async def main():
-  # Установка выпадающего меню команд в Telegram
   await bot.set_my_commands([
       BotCommand(command="start", description="Запустить бота и меню"),
       BotCommand(command="me", description="Мой профиль"),
