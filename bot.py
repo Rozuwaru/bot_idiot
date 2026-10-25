@@ -12,7 +12,7 @@ from aiogram.exceptions import TelegramBadRequest
 from supabase import create_client, Client
 
 # --- НАСТРОЙКИ (КЛЮЧИ И ТОКЕНЫ) ---
-BOT_TOKEN = "8844907899:AAGGQlQscoqCFCYnt9F-ESOGaeyHOoo4Ydl"
+BOT_TOKEN = "8844907899:AAH-5pSNsC4gV7vVSMoa6oyC6GHAGQgoH_w"
 SUPABASE_URL = "https://cbypocbgeevwqhjahchy.supabase.co"
 SUPABASE_KEY = "sb_secret_-UrHMAqT_WUBb1xdj9fWTQ_TXK2GxGt"
 
