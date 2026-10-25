@@ -12,7 +12,7 @@ from supabase import create_client, Client
 # --- НАСТРОЙКИ (КЛЮЧИ И ТОКЕНЫ) ---
 BOT_TOKEN = "8844907899:AAHWYb30wS3F4vnnzWdB8MrH_50TTqnBRpE"
 SUPABASE_URL = "https://cbypocbgeevwqhjahchy.supabase.co"
-SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNicXBvY2JnZWV3cWhqYWhjaHkiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTczMDM1MTM3MiwiZXhwIjoyMDQ1OTExMzcyfQ.B2kKt2EeYidQ0a78EcZF83oJgOVE4gi1qlVnDUr4u34".strip()
+SUPABASE_KEY = "sb_publishable_zcF4S765sEmvXLIQegRkFg_1el4gZn_".strip()
 
 ADMIN_USERNAMES = {"p0tat0777"}
 DUEL_MUTE_TIME = 3
