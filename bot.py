@@ -29,6 +29,9 @@ class FamilyState(StatesGroup):
     waiting_for_child_name = State()
     waiting_for_deposit_amount = State()
 
+class ProfileState(StatesGroup):
+    waiting_for_music = State()
+
 LEVELS = {
     1: {"xp": 0, "title": "Новичок"},
     2: {"xp": 125, "title": "Бродяга"},
@@ -198,7 +201,6 @@ async def get_profile(user: types.User):
         response = await asyncio.to_thread(_fetch)
         if response.data:
             user_data = response.data[0]
-            # Если в старой базе created_at был равен 0, обновляем его текущим временем
             if not user_data.get("created_at") or int(user_data.get("created_at", 0)) == 0:
                 supabase.table("users").update({"created_at": now}).eq("user_id", uid).execute()
                 user_data["created_at"] = now
@@ -220,7 +222,8 @@ async def get_profile(user: types.User):
         "smoking_level": 0,
         "last_smoke_time": 0,
         "created_at": now,
-        "marriage_time": 0
+        "marriage_time": 0,
+        "profile_music": ""
     }
     def _insert():
         return supabase.table("users").upsert(new_user).execute()
@@ -272,13 +275,13 @@ async def get_or_create_family(uid1: str, uid2: str):
 def get_main_keyboard(user_id: int):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👤 Профиль", callback_data=f"menu_profile_{user_id}"),
-         InlineKeyboardButton(text="🎒 Инвентарь", callback_data=f"menu_inv_{user_id})],
+         InlineKeyboardButton(text="🎒 Инвентарь", callback_data=f"menu_inv_{user_id}")],
         [InlineKeyboardButton(text="⚔️ Оружейная", callback_data=f"menu_armory_{user_id}"),
-         InlineKeyboardButton(text="🛒 Магазины", callback_data=f"menu_shops_{user_id})],
+         InlineKeyboardButton(text="🛒 Магазины", callback_data=f"menu_shops_{user_id}")],
         [InlineKeyboardButton(text="🍑 Секс-шоп", callback_data=f"menu_sexshop_{user_id}"),
-         InlineKeyboardButton(text="🏠 Личное имущество", callback_data=f"menu_personal_{user_id})],
+         InlineKeyboardButton(text="🏠 Личное имущество", callback_data=f"menu_personal_{user_id}")],
         [InlineKeyboardButton(text="🏆 Топ игроков", callback_data=f"menu_top_{user_id}"),
-         InlineKeyboardButton(text="💼 Биржа труда", callback_data=f"menu_work_{user_id})],
+         InlineKeyboardButton(text="💼 Биржа труда", callback_data=f"menu_work_{user_id}")],
         [InlineKeyboardButton(text="🎰 Казино и игры", callback_data=f"menu_casino_{user_id}"),
          InlineKeyboardButton(text="💍 Отношения и Семья", callback_data=f"menu_marry_{user_id}")]
     ])
@@ -343,6 +346,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             smoke_status = f"🚬 Никотиновая зависимость: Уровень `{smoke_lvl}`" if smoke_lvl > 0 else "🚭 Не курит"
             equipped = p.get("equipped_item", "")
             eq_name = SHOP_EQUIPMENT.get(equipped, {}).get("name", "❌ Ничего не надето")
+            music_status = "🎵 Установлена" if p.get("profile_music") else "❌ Нет"
             
             text = (
                 f"👤 **Профиль: {p.get('username')}**\n"
@@ -352,13 +356,22 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 f"🪙 Монеты: `{p.get('coins')}`\n"
                 f"❤️ Респект: `{p.get('respect')}`\n"
                 f"⚔️ Экипировка: `{eq_name}`\n"
+                f"🎶 Музыка в профиле: `{music_status}`\n"
                 f"{smoke_status}\n"
                 f"{marriage}"
             )
-            kb = InlineKeyboardMarkup(inline_keyboard=[
+            
+            kb_buttons = [
+                [InlineKeyboardButton(text="🎵 Музыка профиля", callback_data=f"profile_music_menu_{uid}")]
+            ]
+            if p.get("profile_music"):
+                kb_buttons.append([InlineKeyboardButton(text="🎧 Прослушать музыку", callback_data=f"play_music_{uid}")])
+            
+            kb_buttons.extend([
                 [InlineKeyboardButton(text="🔄 Обновить", callback_data=f"menu_profile_{uid}"),
                  InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
             ])
+            kb = InlineKeyboardMarkup(inline_keyboard=kb_buttons)
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
         elif action == "armory":
@@ -511,6 +524,104 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
     except Exception as e:
         logging.error(f"Error in callback_main_menu: {e}")
         await callback.answer("❌ Произошла ошибка!", show_alert=True)
+
+# --- МУЗЫКА В ПРОФИЛЕ ---
+
+@dp.callback_query(F.data.startswith("profile_music_menu_"))
+async def profile_music_menu(callback: types.CallbackQuery):
+    uid = callback.data.split("_")[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+    p = await get_profile(callback.from_user)
+    has_music = bool(p.get("profile_music"))
+    
+    text = (
+        f"🎵 **МУЗЫКА В ПРОФИЛЕ**\n\n"
+        f"Здесь вы можете установить аудиозапись или песню, которая будет привязана к вашему профилю.\n"
+        f"Статус: `{'Установлена' if has_music else 'Отсутствует'}`"
+    )
+    buttons = [
+        [InlineKeyboardButton(text="📥 Установить / Изменить музыку", callback_data=f"set_music_prompt_{uid}")]
+    ]
+    if has_music:
+        buttons.append([InlineKeyboardButton(text="🎧 Прослушать текущую", callback_data=f"play_music_{uid}")])
+        buttons.append([InlineKeyboardButton(text="❌ Удалить музыку", callback_data=f"del_music_{uid}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Назад в профиль", callback_data=f"menu_profile_{uid}")])
+    
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("set_music_prompt_"))
+async def set_music_prompt(callback: types.CallbackQuery, state: FSMContext):
+    uid = callback.data.split("_")[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+    await state.set_state(ProfileState.waiting_for_music)
+    await callback.message.edit_text(
+        "🎵 **УСТАНОВКА МУЗЫКИ В ПРОФИЛЬ**\n\nОтправьте в этот чат любой аудиофайл или музыку из Telegram следующим сообщением:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад", callback_data=f"profile_music_menu_{uid}")]
+        ]),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    await callback.answer()
+
+@dp.message(ProfileState.waiting_for_music, F.audio)
+async def save_profile_music(message: types.Message, state: FSMContext):
+    file_id = message.audio.file_id
+    uid = str(message.from_user.id)
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"profile_music": file_id}).eq("user_id", uid).execute())
+    except Exception as e:
+        logging.error(f"Error saving profile music: {e}")
+    await state.clear()
+    await message.answer(
+        "✅ Музыка успешно установлена в ваш профиль!",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="👤 В профиль", callback_data=f"menu_profile_{uid}")]
+        ])
+    )
+
+@dp.message(ProfileState.waiting_for_music)
+async def not_audio_music(message: types.Message):
+    await message.answer("❌ Пожалуйста, отправьте именно **аудиофайл** или музыку из Telegram:")
+
+@dp.callback_query(F.data.startswith("play_music_"))
+async def play_profile_music(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    target_uid = parts[2]
+    def _fetch():
+        return supabase.table("users").select("profile_music, username").eq("user_id", target_uid).execute()
+    try:
+        res = await asyncio.to_thread(_fetch)
+        if res.data and res.data[0].get("profile_music"):
+            file_id = res.data[0]["profile_music"]
+            uname = res.data[0]["username"]
+            await callback.message.answer_audio(audio=file_id, caption=f"🎵 Музыка из профиля игрока {uname}")
+            await callback.answer("🎶 Воспроизведение...")
+        else:
+            await callback.answer("❌ У этого игрока не установлена музыка в профиле!", show_alert=True)
+    except Exception as e:
+        logging.error(f"Error playing music: {e}")
+        await callback.answer("❌ Ошибка при воспроизведении!", show_alert=True)
+
+@dp.callback_query(F.data.startswith("del_music_"))
+async def delete_profile_music(callback: types.CallbackQuery, state: FSMContext):
+    uid = callback.data.split("_")[2]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"profile_music": ""}).eq("user_id", uid).execute())
+    except Exception:
+        pass
+    await callback.answer("🗑 Музыка удалена из профиля.", show_alert=True)
+    callback.data = f"menu_profile_{uid}"
+    await callback_main_menu(callback, state)
+
+# --- СЛОТЫ И ДРУГИЕ КОМПОНЕНТЫ ---
 
 @dp.callback_query(F.data.startswith("slots_help_"))
 async def slots_help_callback(callback: types.CallbackQuery):
@@ -1219,8 +1330,6 @@ async def callback_do_work(callback: types.CallbackQuery):
         logging.error(f"Error in do_work: {e}")
         await callback.answer("❌ Ошибка при работе!", show_alert=True)
 
-# --- НОВАЯ СИСТЕМА ИНТИМА С ВЫБОРОМ ПРЕДМЕТА И СПЛОШНЫМ ТЕКСТОМ ---
-
 @dp.callback_query(F.data == "action_sex_menu")
 async def callback_action_sex_menu(callback: types.CallbackQuery):
     await show_sex_selection(callback.message, callback.from_user)
@@ -1261,7 +1370,6 @@ async def show_sex_selection(message_obj, user_obj):
         i_name = SEX_SHOP.get(i_key, {}).get("name", i_key)
         buttons.append([InlineKeyboardButton(text=f"Использовать: {i_name}", callback_data=f"sex_use_{i_key}")])
     
-    # Добавим вариант без предметов
     buttons.append([InlineKeyboardButton(text="Без игрушек", callback_data="sex_use_none")])
     kb = InlineKeyboardMarkup(inline_keyboard=buttons)
     
@@ -1297,7 +1405,6 @@ async def callback_sex_use_item(callback: types.CallbackQuery):
         except Exception:
             pass
 
-        # Детализированные пошлые описания сплошным текстом без спецсимволов и списков
         descriptions = {
             "none": f"Воздух в комнате мгновенно раскаляется от жажды близости когда {user_obj.first_name} прижимает к себе {pname} и страстно впивается в губы срывая остатки одежды. Тела сливаются в единое целое в диком и безудержном ритме под громкие стоны наполняющие каждый угол спальни. Каждое движение пропитано безумной страстью доводя обоих до исступления и дикой сладкой разрядки.",
             "sex_vibe": f"В тишине спальни {user_obj.first_name} берет мощный вибратор и начинает медленно сводить с ума {pname} исследуя каждый сантиметр чувствительного тела. Глубокие вибрации заставляют {pname} выгибаться в дугу и исступленно кричать от накатывающих волн оргазмического экстаза. Страсть перерастает в жесткий и дикий процесс где каждый толчок приносит сокрушительное удовольствие.",
@@ -1741,11 +1848,6 @@ async def cmd_divorce(message: types.Message, state: FSMContext):
         pass
     await message.answer("💔 Развод оформлен.", parse_mode=ParseMode.MARKDOWN)
 
-@dp.message(Command("sex"))
-async def cmd_sex_text(message: types.Message, state: FSMContext):
-    await state.clear()
-    await show_sex_selection(message, message.from_user)
-
 async def verify_admin(message: types.Message) -> bool:
     if not is_admin(message.from_user):
         await message.answer("❌ Нет прав.")
@@ -1812,7 +1914,7 @@ async def admin_set_level(message: types.Message, state: FSMContext):
 async def process_message_xp(message: types.Message, state: FSMContext):
     if message.text.startswith("/"): return
     current_state = await state.get_state()
-    if current_state in [FamilyState.waiting_for_child_name.state, FamilyState.waiting_for_deposit_amount.state]:
+    if current_state in [FamilyState.waiting_for_child_name.state, FamilyState.waiting_for_deposit_amount.state, ProfileState.waiting_for_music.state]:
         return
         
     uid = str(message.from_user.id)
