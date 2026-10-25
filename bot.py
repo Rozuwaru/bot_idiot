@@ -121,6 +121,27 @@ SHOP_CONSUMABLES = {
     "cigars": {"name": "🚬 Сигареты", "price": 100, "desc": "Добавляет авторитета (+5 респекта)."},
 }
 
+# Справочники для семейных покупок
+APARTMENTS_CAT = {
+    "apt_studio": {"name": "🏢 Студия на окраине", "price": 1200},
+    "apt_1k": {"name": "🏢 1-комнатная квартира", "price": 2500},
+    "apt_3k": {"name": "🏢 3-комнатная в центре", "price": 5500},
+    "apt_penthouse": {"name": "🏢 Элитный пентхаус", "price": 15000},
+}
+
+HOUSES_CAT = {
+    "house_dacha": {"name": "🏡 Дачный домик", "price": 4000},
+    "house_cottage": {"name": "🏡 Загородный коттедж", "price": 10000},
+    "house_villa": {"name": "🏡 Элитная вилла с бассейном", "price": 30000},
+}
+
+CARS_CAT = {
+    "car_old": {"name": "🚗 Старая ВАЗ (Б/У)", "price": 900},
+    "car_sedan": {"name": "🚗 Городской седан", "price": 3000},
+    "car_suv": {"name": "🚗 Семейный кроссовер", "price": 8000},
+    "car_sport": {"name": "🏎 Спортивный суперкар", "price": 22000},
+}
+
 def is_admin(user: types.User) -> bool:
     if not user or not user.username:
         return False
@@ -146,6 +167,35 @@ async def get_profile(user: types.User):
     res = await asyncio.to_thread(_insert)
     return res.data[0] if res.data else new_user
 
+async def get_or_create_family(uid1: str, uid2: str):
+    uids = sorted([str(uid1), str(uid2)])
+    fam_id = f"{uids[0]}_{uids[1]}"
+    
+    def _fetch():
+        return supabase.table("families").select("*").eq("family_id", fam_id).execute()
+    
+    res = await asyncio.to_thread(_fetch)
+    if res.data:
+        return res.data[0]
+    
+    new_fam = {
+        "family_id": fam_id,
+        "partner1_id": uids[0],
+        "partner2_id": uids[1],
+        "budget": 0,
+        "food": 0,
+        "house": "❌ Нет",
+        "apartment": "❌ Нет",
+        "car": "❌ Нет",
+        "child_name": "❌ Нет",
+        "child_hunger": 100
+    }
+    def _insert():
+        return supabase.table("families").insert(new_fam).execute()
+    
+    ins_res = await asyncio.to_thread(_insert)
+    return ins_res.data[0] if ins_res.data else new_fam
+
 def get_main_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👤 Профиль", callback_data="menu_profile"),
@@ -154,7 +204,7 @@ def get_main_keyboard():
          InlineKeyboardButton(text="🏆 Топ игроков", callback_data="menu_top")],
         [InlineKeyboardButton(text="💼 Биржа труда", callback_data="menu_work"),
          InlineKeyboardButton(text="🎰 Казино и игры", callback_data="menu_casino")],
-        [InlineKeyboardButton(text="💍 Отношения", callback_data="menu_marry")]
+        [InlineKeyboardButton(text="💍 Отношения и Семья", callback_data="menu_marry")]
     ])
 
 @dp.message(Command(commands=["start", "help", "menu"]))
@@ -246,18 +296,30 @@ async def callback_main_menu(callback: types.CallbackQuery):
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
         elif action == "casino":
-            text = "🎰 **КАЗИНО И ИГРЫ:**\n\nИспользуйте команды в чате:\n• `/casino <ставка>`\n• `/slots <ставка>`\n• `/dice <ставка> <числа>`"
+            text = (
+                "🎰 **КАЗИНО И ИГРЫ:**\n\n"
+                "Используйте команды в чате с нативной анимацией Telegram:\n"
+                "• `/dice <ставка> <числа 1-6>` (Бросок кубика)\n"
+                "• `/slots <ставка>` (Игровой автомат / слоты)"
+            )
             kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]])
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
         elif action == "marry":
             pid, pname = p.get("partner_id"), p.get("partner_name")
-            status = f"💍 В браке с: **{pname}**" if pid and str(pid) != "0" and pname != "EMPTY" else "💍 Вы свободны. Сделайте предложение через реплай и `/marry`"
-            text = f"💍 **ОТНОШЕНИЯ И СЕМЬЯ:**\n\n{status}"
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔥 Уединиться (/sex)", callback_data="action_sex")],
-                [InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
-            ])
+            if pid and str(pid) != "0" and pname != "EMPTY":
+                text = f"💍 **СЕМЕЙНЫЙ ОЧАГ И ОТНОШЕНИЯ:**\n\n💍 В браке с: **{pname}**"
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🏡 Меню семьи", callback_data="family_main"),
+                     InlineKeyboardButton(text="🔥 Уединиться (/sex)", callback_data="action_sex")],
+                    [InlineKeyboardButton(text="💔 Развестись (/divorce)", callback_data="action_divorce"),
+                     InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
+                ])
+            else:
+                text = f"💍 **ОТНОШЕНИЯ И СЕМЬЯ:**\n\n💍 Вы свободны. Сделайте предложение через реплай и `/marry`"
+                kb = InlineKeyboardMarkup(inline_keyboard=[
+                    [InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
+                ])
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
         await callback.answer()
@@ -265,14 +327,182 @@ async def callback_main_menu(callback: types.CallbackQuery):
         logging.error(f"Error in callback_main_menu: {e}")
         await callback.answer("❌ Произошла ошибка!", show_alert=True)
 
-@dp.callback_query(F.data == "back_home")
-async def callback_back_home(callback: types.CallbackQuery):
+# --- РАСШИРЕННОЕ МЕНЮ СЕМЬИ ---
+@dp.callback_query(F.data == "family_main")
+async def callback_family_main(callback: types.CallbackQuery):
     try:
-        text = "🎮 **ГЛАВНОЕ МЕНЮ:**"
-        await callback.message.edit_text(text, reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
+        p = await get_profile(callback.from_user)
+        pid = p.get("partner_id")
+        if not pid or str(pid) == "0":
+            await callback.answer("❌ Доступно только для женатых пар!", show_alert=True)
+            return
+        
+        fam = await get_or_create_family(callback.from_user.id, pid)
+        
+        text = (
+            f"🏡 **СЕМЕЙНЫЙ ОЧАГ И ИМУЩЕСТВО**\n\n"
+            f"💵 Бюджет семьи: `{fam['budget']}` 🪙\n"
+            f"🍔 Запасы еды: `{fam['food']}` ед.\n"
+            f"🏠 Дом: `{fam['house']}`\n"
+            f"🏢 Квартира: `{fam['apartment']}`\n"
+            f"🚗 Машина: `{fam['car']}`\n"
+            f"👶 Ребенок: `{fam['child_name']}` (Сытость: `{fam['child_hunger']}/100`)\n\n"
+            f"👇 Выберите категорию покупок или действий:"
+        )
+        
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💵 Вложить 100 🪙", callback_data="fam_deposit"),
+             InlineKeyboardButton(text="🍔 Купить еду (50 🪙)", callback_data="fam_buy_food")],
+            [InlineKeyboardButton(text="🏢 Выбрать квартиру", callback_data="fam_shop_apt"),
+             InlineKeyboardButton(text="🏡 Выбрать дом", callback_data="fam_shop_house")],
+            [InlineKeyboardButton(text="🚗 Выбрать машину", callback_data="fam_shop_car"),
+             InlineKeyboardButton(text="👶 Завести ребенка (1000 🪙)", callback_data="fam_buy_child")],
+            [InlineKeyboardButton(text="🍼 Покормить ребенка", callback_data="fam_feed_child"),
+             InlineKeyboardButton(text="🧸 Поиграть с ребенком", callback_data="fam_play_child")],
+            [InlineKeyboardButton(text="🔙 Назад к отношениям", callback_data="menu_marry")]
+        ])
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
         await callback.answer()
     except Exception as e:
-        logging.error(f"Error in back_home: {e}")
+        logging.error(f"Error in family_main: {e}")
+        await callback.answer("❌ Ошибка при открытии меню семьи!", show_alert=True)
+
+# Магазин квартир
+@dp.callback_query(F.data == "fam_shop_apt")
+async def fam_shop_apt(callback: types.CallbackQuery):
+    buttons = []
+    for k, v in APARTMENTS_CAT.items():
+        buttons.append([InlineKeyboardButton(text=f"{v['name']} — {v['price']} 🪙", callback_data=f"fam_buy_item_apt_{k}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Назад в семью", callback_data="family_main")])
+    await callback.message.edit_text("🏢 **РЫНОК КВАРТИР:**\nВыберите вариант для покупки:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+
+# Магазин домов
+@dp.callback_query(F.data == "fam_shop_house")
+async def fam_shop_house(callback: types.CallbackQuery):
+    buttons = []
+    for k, v in HOUSES_CAT.items():
+        buttons.append([InlineKeyboardButton(text=f"{v['name']} — {v['price']} 🪙", callback_data=f"fam_buy_item_house_{k}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Назад в семью", callback_data="family_main")])
+    await callback.message.edit_text("🏡 **РЫНОК ДОМОВ И ВИЛЛ:**\nВыберите загородную недвижимость:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+
+# Магазин машин
+@dp.callback_query(F.data == "fam_shop_car")
+async def fam_shop_car(callback: types.CallbackQuery):
+    buttons = []
+    for k, v in CARS_CAT.items():
+        buttons.append([InlineKeyboardButton(text=f"{v['name']} — {v['price']} 🪙", callback_data=f"fam_buy_item_car_{k}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Назад в семью", callback_data="family_main")])
+    await callback.message.edit_text("🚗 **АВТОСАЛОН:**\nВыберите семейный автомобиль:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+
+@dp.callback_query(F.data.startswith("fam_buy_item_"))
+async def fam_buy_specific_item(callback: types.CallbackQuery):
+    try:
+        parts = callback.data.replace("fam_buy_item_", "").split("_", 1)
+        category = parts[0] # apt, house, car
+        item_key = f"{parts[0]}_{parts[1]}"
+        
+        p = await get_profile(callback.from_user)
+        pid = p.get("partner_id")
+        fam = await get_or_create_family(callback.from_user.id, pid)
+        fam_id = fam["family_id"]
+        
+        item_data = {}
+        if category == "apt": item_data = APARTMENTS_CAT[item_key]
+        elif category == "house": item_data = HOUSES_CAT[item_key]
+        elif category == "car": item_data = CARS_CAT[item_key]
+        
+        if fam["budget"] < item_data["price"]:
+            await callback.answer(f"❌ В семейном бюджете не хватает средств! Нужно {item_data['price']} 🪙", show_alert=True)
+            return
+            
+        column_map = {"apt": "apartment", "house": "house", "car": "car"}
+        col_name = column_map[category]
+        
+        new_budget = fam["budget"] - item_data["price"]
+        await asyncio.to_thread(lambda: supabase.table("families").update({
+            "budget": new_budget,
+            col_name: item_data["name"]
+        }).eq("family_id", fam_id).execute())
+        
+        await callback.answer(f"🎉 Успешно приобретено: {item_data['name']}!", show_alert=True)
+        await callback_family_main(callback)
+    except Exception as e:
+        logging.error(f"Error buying item: {e}")
+        await callback.answer("❌ Ошибка при покупке!", show_alert=True)
+
+@dp.callback_query(F.data.startswith("fam_"))
+async def callback_family_actions(callback: types.CallbackQuery):
+    try:
+        action = callback.data.split("_")[1]
+        p = await get_profile(callback.from_user)
+        pid = p.get("partner_id")
+        if not pid or str(pid) == "0":
+            await callback.answer("❌ Вы не в браке!", show_alert=True)
+            return
+            
+        fam = await get_or_create_family(callback.from_user.id, pid)
+        fam_id = fam["family_id"]
+        coins = p.get("coins", 0)
+        
+        if action == "deposit":
+            if coins < 100:
+                await callback.answer("❌ У вас недостаточно монет (нужно 100 🪙)!", show_alert=True)
+                return
+            new_coins = coins - 100
+            new_budget = fam["budget"] + 100
+            await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins}).eq("user_id", p["user_id"]).execute())
+            await asyncio.to_thread(lambda: supabase.table("families").update({"budget": new_budget}).eq("family_id", fam_id).execute())
+            await callback.answer("✅ Вы успешно внесли 100 монет в семейный бюджет!", show_alert=True)
+            
+        elif action == "buy" and callback.data.split("_")[2] == "food":
+            if fam["budget"] < 50:
+                await callback.answer("❌ В семейном бюджете недостаточно средств (нужно 50 🪙)!", show_alert=True)
+                return
+            await asyncio.to_thread(lambda: supabase.table("families").update({
+                "budget": fam["budget"] - 50,
+                "food": fam["food"] + 20
+            }).eq("family_id", fam_id).execute())
+            await callback.answer("✅ Куплено 20 ед. продуктов в семью!", show_alert=True)
+                
+        elif action == "buy" and callback.data.split("_")[2] == "child":
+            if fam["child_name"] != "❌ Нет":
+                await callback.answer("⚠️ У вас уже есть ребенок!", show_alert=True)
+                return
+            if fam["budget"] < 1000:
+                await callback.answer("❌ Нужно 1000 🪙 в семейном бюджете на расходы по рождению!", show_alert=True)
+                return
+            child_names = ["Тони", "Алиса", "Максим", "София", "Артем", "Милана"]
+            c_name = random.choice(child_names)
+            await asyncio.to_thread(lambda: supabase.table("families").update({
+                "budget": fam["budget"] - 1000,
+                "child_name": c_name,
+                "child_hunger": 100
+            }).eq("family_id", fam_id).execute())
+            await callback.answer(f"👶 У вас родился замечательный ребенок: {c_name}!", show_alert=True)
+                
+        elif action == "feed":
+            if fam["child_name"] == "❌ Нет":
+                await callback.answer("❌ У вас пока нет детей!", show_alert=True)
+                return
+            if fam["food"] < 10:
+                await callback.answer("❌ В семье закончилась еда! Купите продукты в меню семьи.", show_alert=True)
+                return
+            new_hunger = min(100, fam["child_hunger"] + 35)
+            await asyncio.to_thread(lambda: supabase.table("families").update({
+                "food": fam["food"] - 10,
+                "child_hunger": new_hunger
+            }).eq("family_id", fam_id).execute())
+            await callback.answer(f"🍼 Вы покормили ребенка. Сытость: {new_hunger}/100", show_alert=True)
+            
+        elif action == "play":
+            if fam["child_name"] == "❌ Нет":
+                await callback.answer("❌ У вас пока нет детей!", show_alert=True)
+                return
+            await callback.answer(f"🧸 Вы поиграли с ребенком {fam['child_name']}. Он очень доволен!", show_alert=True)
+            
+        await callback_family_main(callback)
+    except Exception as e:
+        logging.error(f"Error in family actions: {e}")
         await callback.answer("❌ Ошибка!", show_alert=True)
 
 @dp.callback_query(F.data == "shop_eq_list")
@@ -308,7 +538,6 @@ async def callback_shop_cons(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("buy_eq_"))
 async def callback_buy_eq(callback: types.CallbackQuery):
     try:
-        # Корректно извлекаем id предмета (например, "eq_1")
         item_id = callback.data.replace("buy_eq_", "", 1)
         item = SHOP_EQUIPMENT[item_id]
         p = await get_profile(callback.from_user)
@@ -335,7 +564,6 @@ async def callback_buy_eq(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("buy_cons_"))
 async def callback_buy_cons(callback: types.CallbackQuery):
     try:
-        # Корректно извлекаем id расходуемого предмета (например, "beer_okhota")
         item_id = callback.data.replace("buy_cons_", "", 1)
         item = SHOP_CONSUMABLES[item_id]
         p = await get_profile(callback.from_user)
@@ -357,9 +585,8 @@ async def callback_buy_cons(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("use_item_"))
 async def callback_use_item(callback: types.CallbackQuery):
     try:
-        # Формат callback_data: use_item_<index>_<item_key>
         parts = callback.data.split("_", 2)
-        remainder = parts[2] # вида "<index>_<item_key>"
+        remainder = parts[2]
         idx_str, item_key = remainder.split("_", 1)
         item_idx = int(idx_str)
         
@@ -519,10 +746,32 @@ async def callback_action_sex(callback: types.CallbackQuery):
             if new_xp >= data["xp"]: new_level = lvl
             
         await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
-        await callback.answer(f"🔥 Романтический успех! +{coins} 🪙, +{xp} XP", show_alert=True)
+        
+        announcement = (
+            f"🔥 **ВНИМАНИЕ ВСЕМ!** 🔥\n"
+            f"В этом чате только что произошел страстный половой акт между **{callback.from_user.first_name}** и **{pname}**! 🛲💦\n"
+            f"🪙 Оба участника получили порцию страсти (+{coins} монет, +{xp} XP)!"
+        )
+        await callback.message.answer(announcement, parse_mode=ParseMode.MARKDOWN)
+        await callback.answer("✅ Успешно!", show_alert=False)
     except Exception as e:
         logging.error(f"Error in action_sex: {e}")
         await callback.answer("❌ Ошибка!", show_alert=True)
+
+@dp.callback_query(F.data == "action_divorce")
+async def callback_action_divorce(callback: types.CallbackQuery):
+    try:
+        p = await get_profile(callback.from_user)
+        pid = p.get("partner_id")
+        if not pid or str(pid) == "0":
+            await callback.answer("💔 Вы не в браке.", show_alert=True)
+            return
+        await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY"}).eq("user_id", str(pid)).execute())
+        await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY"}).eq("user_id", p["user_id"]).execute())
+        await callback.message.edit_text("💔 Развод успешно оформлен.", reply_markup=InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]]))
+    except Exception as e:
+        logging.error(f"Error in divorce: {e}")
+        await callback.answer("❌ Ошибка при разводе!", show_alert=True)
 
 # --- ТЕКСТОВЫЕ КОМАНДЫ ---
 @dp.message(Command("me"))
@@ -643,57 +892,42 @@ async def give_respect(message: types.Message):
     await asyncio.to_thread(lambda: supabase.table("users").update({"respect": new_respect}).eq("user_id", str(target.id)).execute())
     await message.answer(f"👍 Респект **{target.first_name}** повышен! (`{new_respect}`)", parse_mode=ParseMode.MARKDOWN)
 
-@dp.message(Command("casino"))
-async def cmd_casino(message: types.Message):
-    args = message.text.split()
-    if len(args) < 2:
-        await message.answer("Использование: `/casino <ставка>`", parse_mode=ParseMode.MARKDOWN)
-        return
-    try:
-        bet = int(args[1])
-        if bet <= 0: raise ValueError()
-    except ValueError:
-        return
-    p = await get_profile(message.from_user)
-    if p.get("coins", 0) < bet:
-        await message.answer("Недостаточно монет!")
-        return
-    if random.random() > 0.5:
-        new_coins = p["coins"] + bet
-        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins}).eq("user_id", p["user_id"]).execute())
-        await message.answer(f"🎰 Победа! Вы выиграли `{bet}` монет! Баланс: `{new_coins}`", parse_mode=ParseMode.MARKDOWN)
-    else:
-        new_coins = p["coins"] - bet
-        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins}).eq("user_id", p["user_id"]).execute())
-        await message.answer(f"🎰 Проигрыш. Потеряно `{bet}` монет. Баланс: `{new_coins}`", parse_mode=ParseMode.MARKDOWN)
-
+# --- НАТИВНЫЕ АНИМАЦИИ ДАЙСА И СЛОТОВ ---
 @dp.message(Command("dice"))
 async def cmd_dice(message: types.Message):
     args = message.text.split()
     if len(args) < 3:
-        await message.answer("Использование: `/dice <ставка> <числа 1-6>`", parse_mode=ParseMode.MARKDOWN)
+        await message.answer("Использование: `/dice <ставка> <числа 1-6>`\nПример: `/dice 100 3 4 5`", parse_mode=ParseMode.MARKDOWN)
         return
     try:
         bet = int(args[1])
         chosen = list(set([int(x) for x in args[2:]]))
         if bet <= 0 or any(n < 1 or n > 6 for n in chosen): raise ValueError()
     except ValueError:
+        await message.answer("❌ Неверная ставка или числа! Числа должны быть от 1 до 6.", parse_mode=ParseMode.MARKDOWN)
         return
+        
     p = await get_profile(message.from_user)
     if p.get("coins", 0) < bet:
-        await message.answer("Недостаточно монет!")
+        await message.answer("❌ У вас недостаточно монет!")
         return
+        
+    dice_msg = await message.answer_dice(emoji="🎲")
+    roll = dice_msg.dice.value
+    
+    await asyncio.sleep(3)
+    
+    coins = p["coins"] - bet
     multipliers = {1: 6.0, 2: 3.0, 3: 2.0, 4: 1.5, 5: 1.2}
-    roll = random.randint(1, 6)
+    
     if roll in chosen:
-        win = int(bet * multipliers[len(chosen)]) - bet
-        new_coins = p["coins"] + win
-        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins}).eq("user_id", p["user_id"]).execute())
-        await message.answer(f"🎲 Выпало **{roll}**! Выиграно `+{win}` монет!", parse_mode=ParseMode.MARKDOWN)
+        win = int(bet * multipliers[len(chosen)])
+        coins += win
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+        await message.answer(f"🎲 Выпало **{roll}**! Победа! Вы выиграли `+{win - bet}` монет! 💰 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
     else:
-        new_coins = p["coins"] - bet
-        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins}).eq("user_id", p["user_id"]).execute())
-        await message.answer(f"🎲 Выпало **{roll}**. Проигрыш `{bet}` монет.", parse_mode=ParseMode.MARKDOWN)
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+        await message.answer(f"🎲 Выпало **{roll}**. Проигрыш `{bet}` монет. 💸 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("slots"))
 async def cmd_slots(message: types.Message):
@@ -705,24 +939,36 @@ async def cmd_slots(message: types.Message):
         bet = int(args[1])
         if bet <= 0: raise ValueError()
     except ValueError:
+        await message.answer("❌ Неверная ставка!", parse_mode=ParseMode.MARKDOWN)
         return
+        
     p = await get_profile(message.from_user)
     if p.get("coins", 0) < bet:
-        await message.answer("Недостаточно монет!")
+        await message.answer("❌ У вас недостаточно монет!")
         return
-    symbols = ["🍋", "🍒", "🍇", "🔔", "👑"]
-    s1, s2, s3 = random.choice(symbols), random.choice(symbols), random.choice(symbols)
-    if s1 == s2 == s3:
-        new_coins = p["coins"] + (bet * 4)
-        res = f"🎰 | {s1} | {s2} | {s3} |\n🎉 ДЖЕКПОТ (x5)! `+{bet*4}` монет!"
-    elif s1 == s2 or s2 == s3 or s1 == s3:
-        new_coins = p["coins"] + bet
-        res = f"🎰 | {s1} | {s2} | {s3} |\n✨ Удача (x2)! `+{bet}` монет!"
+        
+    slot_msg = await message.answer_dice(emoji="🎰")
+    val = slot_msg.dice.value
+    
+    await asyncio.sleep(3)
+    
+    coins = p["coins"] - bet
+    is_jackpot = val in [1, 22, 43, 64]
+    is_win = val in [16, 23, 34, 41, 52, 59] or is_jackpot
+    
+    if is_jackpot:
+        win = bet * 5
+        coins += win
+        res_text = f"🎉 ДЖЕКПОТ (x5)! Вы выиграли `+{win}` монет!"
+    elif is_win:
+        win = int(bet * 2)
+        coins += win
+        res_text = f"✨ Удача (x2)! Вы выиграли `+{win}` монет!"
     else:
-        new_coins = p["coins"] - bet
-        res = f"🎰 | {s1} | {s2} | {s3} |\n❌ Проигрыш `{bet}` монет."
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins}).eq("user_id", p["user_id"]).execute())
-    await message.answer(f"{res}\n💰 Баланс: `{new_coins}`", parse_mode=ParseMode.MARKDOWN)
+        res_text = f"❌ Проигрыш `{bet}` монет."
+        
+    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+    await message.answer(f"{res_text}\n💰 Баланс: `{coins}`", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("ball"))
 async def cmd_ball(message: types.Message):
@@ -790,7 +1036,7 @@ async def callback_marry(callback: types.CallbackQuery):
 
         await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": str(accepter.id), "partner_name": accepter.first_name}).eq("user_id", str(proposer_id)).execute())
         await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": str(proposer_id), "partner_name": proposer_data["username"]}).eq("user_id", str(accepter.id)).execute())
-        await callback.message.edit_text(f"🎉 Горько! **{proposer_data['username']}** и **{accepter.first_name}** поженились! 💍❤️")
+        await callback.message.edit_text(f"🎉 Горько! **{proposer_data['username']}** и **{accepter.first_name}** поженились! 💍❤️ Теперь вам доступно меню семьи в профиле отношений.")
     except Exception as e:
         logging.error(f"Error in marry callback: {e}")
         await callback.answer("❌ Ошибка при заключении брака!", show_alert=True)
@@ -835,7 +1081,13 @@ async def cmd_sex(message: types.Message):
     for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
         if new_xp >= data["xp"]: new_level = lvl
     await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
-    await message.answer(f"🔥 Уединение с **{pname}** завершено!\n🪙 `+{coins}` монет\n✨ `+{xp} XP`", parse_mode=ParseMode.MARKDOWN)
+    
+    announcement = (
+        f"🔥 **ВНИМАНИЕ ВСЕМ!** 🔥\n"
+        f"В этом чате только что произошел страстный половой акт между **{message.from_user.first_name}** и **{pname}**! 🛏️💦\n"
+        f"🪙 Оба участника получили порцию страсти (+{coins} монет, +{xp} XP)!"
+    )
+    await message.answer(announcement, parse_mode=ParseMode.MARKDOWN)
 
 # --- АДМИНСКИЕ КОМАНДЫ ---
 async def verify_admin(message: types.Message) -> bool:
