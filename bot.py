@@ -193,7 +193,7 @@ async def callback_main_menu(callback: types.CallbackQuery):
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
         elif action == "inv":
-            inv_str = p.get("inventory", "")
+            inv_str = p.get("inventory") or ""
             items = [i.strip() for i in inv_str.split(",") if i.strip()]
             
             if not items:
@@ -308,7 +308,8 @@ async def callback_shop_cons(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("buy_eq_"))
 async def callback_buy_eq(callback: types.CallbackQuery):
     try:
-        item_id = callback.data.split("_")[2]
+        # Корректно извлекаем id предмета (например, "eq_1")
+        item_id = callback.data.replace("buy_eq_", "", 1)
         item = SHOP_EQUIPMENT[item_id]
         p = await get_profile(callback.from_user)
         
@@ -334,7 +335,8 @@ async def callback_buy_eq(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("buy_cons_"))
 async def callback_buy_cons(callback: types.CallbackQuery):
     try:
-        item_id = callback.data.split("_")[2]
+        # Корректно извлекаем id расходуемого предмета (например, "beer_okhota")
+        item_id = callback.data.replace("buy_cons_", "", 1)
         item = SHOP_CONSUMABLES[item_id]
         p = await get_profile(callback.from_user)
         
@@ -343,7 +345,7 @@ async def callback_buy_cons(callback: types.CallbackQuery):
             return
             
         new_coins = p["coins"] - item["price"]
-        current_inv = p.get("inventory", "")
+        current_inv = p.get("inventory") or ""
         updated_inv = f"{current_inv},{item_id}" if current_inv else item_id
         
         await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "inventory": updated_inv}).eq("user_id", p["user_id"]).execute())
@@ -355,12 +357,14 @@ async def callback_buy_cons(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("use_item_"))
 async def callback_use_item(callback: types.CallbackQuery):
     try:
-        parts = callback.data.split("_")
-        item_idx = int(parts[2])
-        item_key = parts[3]
+        # Формат callback_data: use_item_<index>_<item_key>
+        parts = callback.data.split("_", 2)
+        remainder = parts[2] # вида "<index>_<item_key>"
+        idx_str, item_key = remainder.split("_", 1)
+        item_idx = int(idx_str)
         
         p = await get_profile(callback.from_user)
-        inv_str = p.get("inventory", "")
+        inv_str = p.get("inventory") or ""
         items = [i.strip() for i in inv_str.split(",") if i.strip()]
         
         if item_idx >= len(items) or items[item_idx] != item_key:
@@ -442,7 +446,7 @@ async def callback_use_item(callback: types.CallbackQuery):
         await callback.answer(effect_message, show_alert=True)
         
         p_updated = await get_profile(callback.from_user)
-        items_up = [i.strip() for i in p_updated.get("inventory", "").split(",") if i.strip()]
+        items_up = [i.strip() for i in (p_updated.get("inventory") or "").split(",") if i.strip()]
         if not items_up:
             text = f"🎒 **Инвентарь игрока {p.get('username')}:**\n\nИнвентарь пуст."
             kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]])
@@ -555,7 +559,7 @@ async def cmd_shop(message: types.Message):
 @dp.message(Command("inv"))
 async def cmd_inv(message: types.Message):
     p = await get_profile(message.from_user)
-    inv_str = p.get("inventory", "")
+    inv_str = p.get("inventory") or ""
     items = [i.strip() for i in inv_str.split(",") if i.strip()]
     if not items:
         await message.answer(f"🎒 **Инвентарь игрока {p.get('username')}:**\n\nПусто.", parse_mode=ParseMode.MARKDOWN)
