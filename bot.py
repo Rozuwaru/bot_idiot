@@ -33,7 +33,6 @@ class FamilyState(StatesGroup):
 class ProfileState(StatesGroup):
     waiting_for_music = State()
 
-# Полная таблица уровней (все 67 уровней)
 LEVELS = {
     1: {"xp": 0, "title": "Новичок"},
     2: {"xp": 125, "title": "Бродяга"},
@@ -148,23 +147,23 @@ SEX_SHOP = {
     "sex_mask": {"name": "🎭 Кружевная маска", "price": 600, "desc": "Атмосфера тайного греха."},
 }
 
-# 15 реальных машин с названиями, ценами и базовой скоростью
+# 15 реальных машин (цены уменьшены ровно в 10 раз)
 CARS_CAT = {
-    "granta": {"name": "🚗 Lada Granta", "price": 500000, "base_speed": 40},
-    "vesta": {"name": "🚗 Lada Vesta", "price": 1200000, "base_speed": 60},
-    "rio": {"name": "🚗 Kia Rio", "price": 1600000, "base_speed": 75},
-    "solaris": {"name": "🚗 Hyundai Solaris", "price": 1700000, "base_speed": 78},
-    "octavia": {"name": "🚗 Skoda Octavia", "price": 2500000, "base_speed": 95},
-    "camry": {"name": "🚗 Toyota Camry", "price": 3800000, "base_speed": 115},
-    "m3": {"name": "🏎 BMW M3 E46", "price": 5500000, "base_speed": 140},
-    "w222": {"name": "🚘 Mercedes-Benz S-Class", "price": 9000000, "base_speed": 160},
-    "rs6": {"name": "🏎 Audi RS6 Avant", "price": 12500000, "base_speed": 190},
-    "gtr": {"name": "🏎 Nissan GT-R R35", "price": 16000000, "base_speed": 220},
-    "911": {"name": "🏎 Porsche 911 Turbo S", "price": 22000000, "base_speed": 250},
-    "huracan": {"name": "🏎 Lamborghini Huracan", "price": 30000000, "base_speed": 285},
-    "488": {"name": "🏎 Ferrari 488 Spider", "price": 38000000, "base_speed": 310},
-    "chiron": {"name": "🏎 Bugatti Chiron", "price": 60000000, "base_speed": 360},
-    "phantom": {"name": "👑 Rolls-Royce Phantom", "price": 80000000, "base_speed": 340},
+    "granta": {"name": "🚗 Lada Granta", "price": 50000, "base_speed": 40},
+    "vesta": {"name": "🚗 Lada Vesta", "price": 120000, "base_speed": 60},
+    "rio": {"name": "🚗 Kia Rio", "price": 160000, "base_speed": 75},
+    "solaris": {"name": "🚗 Hyundai Solaris", "price": 170000, "base_speed": 78},
+    "octavia": {"name": "🚗 Skoda Octavia", "price": 250000, "base_speed": 95},
+    "camry": {"name": "🚗 Toyota Camry", "price": 380000, "base_speed": 115},
+    "m3": {"name": "🏎 BMW M3 E46", "price": 550000, "base_speed": 140},
+    "w222": {"name": "🚘 Mercedes-Benz S-Class", "price": 900000, "base_speed": 160},
+    "rs6": {"name": "🏎 Audi RS6 Avant", "price": 1250000, "base_speed": 190},
+    "gtr": {"name": "🏎 Nissan GT-R R35", "price": 1600000, "base_speed": 220},
+    "911": {"name": "🏎 Porsche 911 Turbo S", "price": 2200000, "base_speed": 250},
+    "huracan": {"name": "🏎 Lamborghini Huracan", "price": 3000000, "base_speed": 285},
+    "488": {"name": "🏎 Ferrari 488 Spider", "price": 3800000, "base_speed": 310},
+    "chiron": {"name": "🏎 Bugatti Chiron", "price": 6000000, "base_speed": 360},
+    "phantom": {"name": "👑 Rolls-Royce Phantom", "price": 8000000, "base_speed": 340},
 }
 
 CAR_COLORS = [
@@ -172,20 +171,21 @@ CAR_COLORS = [
     "💙 Синий", "💛 Желтый", "💚 Зеленый", "💜 Фиолетовый"
 ]
 
+# Недвижимость (цены уменьшены ровно в 10 раз)
 APARTMENTS_CAT = {
-    "studio": {"name": "🏢 Студия на окраине", "price": 500000},
-    "1k": {"name": "🏢 1-комнатная квартира", "price": 1200000},
-    "3k": {"name": "🏢 3-комнатная в центре", "price": 3500000},
-    "penthouse": {"name": "🏢 Элитный пентхаус", "price": 12000000},
-    "duplex": {"name": "🏢 Двухуровневые апартаменты", "price": 25000000},
+    "studio": {"name": "🏢 Студия на окраине", "price": 50000},
+    "1k": {"name": "🏢 1-комнатная квартира", "price": 120000},
+    "3k": {"name": "🏢 3-комнатная в центре", "price": 350000},
+    "penthouse": {"name": "🏢 Элитный пентхаус", "price": 1200000},
+    "duplex": {"name": "🏢 Двухуровневые апартаменты", "price": 2500000},
 }
 
 HOUSES_CAT = {
-    "dacha": {"name": "🏡 Дачный домик", "price": 2000000},
-    "cottage": {"name": "🏡 Загородный коттедж", "price": 8000000},
-    "villa": {"name": "🏡 Элитная вилла с бассейном", "price": 20000000},
-    "estate": {"name": "🏰 Поместье с парком", "price": 50000000},
-    "palace": {"name": "👑 Королевский особняк", "price": 100000000},
+    "dacha": {"name": "🏡 Дачный домик", "price": 200000},
+    "cottage": {"name": "🏡 Загородный коттедж", "price": 800000},
+    "villa": {"name": "🏡 Элитная вилла с бассейном", "price": 2000000},
+    "estate": {"name": "🏰 Поместье с парком", "price": 5000000},
+    "palace": {"name": "👑 Королевский особняк", "price": 10000000},
 }
 
 def format_age(seconds: int) -> str:
@@ -252,7 +252,7 @@ async def get_profile(user: types.User):
     new_user = {
         "user_id": uid,
         "username": user.username or user.first_name,
-        "coins": 500000, "xp": 0, "level": 1, "respect": 0,
+        "coins": 5000000, "xp": 0, "level": 1, "respect": 0,
         "partner_id": 0, "partner_name": "EMPTY",
         "inventory": "",
         "armory": "",
@@ -321,13 +321,15 @@ def get_main_keyboard(user_id: int):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👤 Профиль", callback_data=f"menu_profile_{user_id}"),
          InlineKeyboardButton(text="🎒 Инвентарь", callback_data=f"menu_inv_{user_id}")],
-        [InlineKeyboardButton(text="🏎 Гараж и Авто", callback_data=f"menu_garage_{user_id}"),
-         InlineKeyboardButton(text="🛒 Магазины", callback_data=f"menu_shops_{user_id}")],
-        [InlineKeyboardButton(text="🍑 Секс-шоп", callback_data=f"menu_sexshop_{user_id}"),
-         InlineKeyboardButton(text="🏠 Личное имущество", callback_data=f"menu_personal_{user_id}")],
-        [InlineKeyboardButton(text="🏆 Топ игроков", callback_data=f"menu_top_{user_id}"),
-         InlineKeyboardButton(text="💼 Биржа труда", callback_data=f"menu_work_{user_id}")],
-        [InlineKeyboardButton(text="🏁 Уличные гонки", callback_data=f"menu_race_{user_id}"),
+        [InlineKeyboardButton(text="⚔️ Оружейная", callback_data=f"menu_armory_{user_id}"),
+         InlineKeyboardButton(text="🏎 Гараж и Авто", callback_data=f"menu_garage_{user_id}")],
+        [InlineKeyboardButton(text="🛒 Магазины", callback_data=f"menu_shops_{user_id}"),
+         InlineKeyboardButton(text="🍑 Секс-шоп", callback_data=f"menu_sexshop_{user_id}")],
+        [InlineKeyboardButton(text="🏠 Имущество", callback_data=f"menu_personal_{user_id}"),
+         InlineKeyboardButton(text="🏆 Топ игроков", callback_data=f"menu_top_{user_id}")],
+        [InlineKeyboardButton(text="💼 Биржа труда", callback_data=f"menu_work_{user_id}"),
+         InlineKeyboardButton(text="🏁 Уличные гонки", callback_data=f"menu_race_{user_id}")],
+        [InlineKeyboardButton(text="🎰 Казино и игры", callback_data=f"menu_casino_{user_id}"),
          InlineKeyboardButton(text="💍 Отношения и Семья", callback_data=f"menu_marry_{user_id}")]
     ])
 
@@ -338,7 +340,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
     text = (
         f"👤 **Меню игрока: {message.from_user.first_name}**\n\n"
         "🎮 Добро пожаловать в RPG бот!\n"
-        "Используйте кнопки ниже для управления персонажем, тюнинга автомобилей и гонок."
+        "Используйте кнопки ниже для управления персонажем, оружейной, казино, тюнинга и гонок."
     )
     await message.answer(text, reply_markup=get_main_keyboard(message.from_user.id), parse_mode=ParseMode.MARKDOWN)
 
@@ -660,6 +662,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
         logging.error(f"Error in callback_main_menu: {e}")
         await callback.answer("❌ Произошла ошибка!", show_alert=True)
 
+# --- ПРОСМОТР ЧУЖОГО ПРОФИЛЯ ---
 @dp.callback_query(F.data.startswith("view_profile_"))
 async def view_other_profile(callback: types.CallbackQuery):
     target_uid = callback.data.split("_")[2]
@@ -712,6 +715,7 @@ async def view_other_profile(callback: types.CallbackQuery):
         await callback.answer()
     await callback.answer()
 
+# --- МУЗЫКА В ПРОФИЛЕ ---
 @dp.callback_query(F.data.startswith("profile_music_menu_"))
 async def profile_music_menu(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
@@ -806,6 +810,7 @@ async def delete_profile_music(callback: types.CallbackQuery, state: FSMContext)
     callback.data = f"menu_profile_{uid}"
     await callback_main_menu(callback, state)
 
+# --- АВТОСАЛОН И ПОКУПКА МАШИН ---
 @dp.callback_query(F.data.startswith("shop_cars_list_"))
 async def shop_cars_list(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
@@ -892,9 +897,9 @@ async def car_tune_menu(callback: types.CallbackQuery):
     car = res.data[0]
     p = await get_profile(callback.from_user)
 
-    engine_cost = car["engine_lvl"] * 200000
-    turbo_cost = car["turbo_lvl"] * 350000
-    handling_cost = car["handling_lvl"] * 150000
+    engine_cost = car["engine_lvl"] * 20000
+    turbo_cost = car["turbo_lvl"] * 35000
+    handling_cost = car["handling_lvl"] * 15000
 
     text = (
         f"⚙️ **ТЮНИНГ И ПОКРАСКА: {car['car_name']}**\n"
@@ -933,9 +938,9 @@ async def upgrade_car_part(callback: types.CallbackQuery):
     p = await get_profile(callback.from_user)
 
     costs = {
-        "engine": car["engine_lvl"] * 200000,
-        "turbo": car["turbo_lvl"] * 350000,
-        "handling": car["handling_lvl"] * 150000
+        "engine": car["engine_lvl"] * 20000,
+        "turbo": car["turbo_lvl"] * 35000,
+        "handling": car["handling_lvl"] * 15000
     }
     cost = costs[part]
 
@@ -1229,6 +1234,166 @@ async def cmd_work(message: types.Message, state: FSMContext):
     await asyncio.to_thread(_upd)
     await message.answer(f"✅ Вы отработали как **{job['name']}**!\n🪙 `+{earned_coins}` монет\n✨ `+{earned_xp} XP`", parse_mode=ParseMode.MARKDOWN)
 
+@dp.message(Command("dice"))
+async def cmd_dice(message: types.Message, state: FSMContext):
+    await state.clear()
+    args = message.text.split()
+    if len(args) < 3:
+        await message.answer(
+            "❌ Использование: `/dice <ставка> <числа от 1 до 6>`\n"
+            "Пример: `/dice 100 2 5 6`", 
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+    try:
+        bet = int(args[1])
+        chosen = []
+        for x in args[2:]:
+            num = int(x)
+            if 1 <= num <= 6 and num not in chosen:
+                chosen.append(num)
+        if bet <= 0 or not (1 <= len(chosen) <= 3):
+            raise ValueError()
+    except ValueError:
+        await message.answer("❌ Ошибка ставки!", parse_mode=ParseMode.MARKDOWN)
+        return
+        
+    p = await get_profile(message.from_user)
+    if p.get("coins", 0) < bet:
+        await message.answer("❌ У вас недостаточно монет!")
+        return
+        
+    dice_msg = await message.answer_dice(emoji="🎲")
+    roll = dice_msg.dice.value
+    await asyncio.sleep(3)
+    
+    coins = p["coins"] - bet
+    count = len(chosen)
+    mult = {1: 6.0, 2: 3.0, 3: 2.0}[count]
+    
+    if roll in chosen:
+        win = int(bet * mult)
+        coins += win
+        profit = win - bet
+        def _upd():
+            supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
+        await asyncio.to_thread(_upd)
+        await message.answer(f"🎲 Выпало **{roll}**! Вы выиграли `+{profit}` монет (x{mult})! 💰 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
+    else:
+        def _upd():
+            supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
+        await asyncio.to_thread(_upd)
+        await message.answer(f"🎲 Выпало **{roll}**. Проигрыш `{bet}` монет. 💸 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
+
+@dp.message(Command("coin"))
+async def cmd_coin(message: types.Message, state: FSMContext):
+    await state.clear()
+    args = message.text.split()
+    if len(args) < 3:
+        await message.answer("❌ Использование: `/coin <ставка> <орел/решка>`", parse_mode=ParseMode.MARKDOWN)
+        return
+    try:
+        bet = int(args[1])
+        choice_input = args[2].lower()
+        if bet <= 0: raise ValueError()
+        user_choice = "орел" if choice_input in ["орел", "о", "head", "heads"] else "решка"
+    except ValueError:
+        await message.answer("❌ Неверная ставка!", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    p = await get_profile(message.from_user)
+    if p.get("coins", 0) < bet:
+        await message.answer("❌ Недостаточно монет!")
+        return
+
+    result = random.choice(["орел", "решка"])
+    coins = p["coins"] - bet
+    
+    if user_choice == result:
+        win = bet * 2
+        coins += win
+        profit = win - bet
+        def _upd():
+            supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
+        await asyncio.to_thread(_upd)
+        await message.answer(f"🪙 Выпал **{result}**! Вы выиграли `+{profit}` монет! 🎉 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
+    else:
+        def _upd():
+            supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
+        await asyncio.to_thread(_upd)
+        await message.answer(f"🪙 Выпал **{result}**. Проигрыш `{bet}` монет. 💸 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
+
+@dp.message(Command("slots"))
+async def cmd_slots(message: types.Message, state: FSMContext):
+    await state.clear()
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("❌ Использование: `/slots <ставка>`", parse_mode=ParseMode.MARKDOWN)
+        return
+    try:
+        bet = int(args[1])
+        if bet <= 0: raise ValueError()
+    except ValueError:
+        await message.answer("❌ Неверная ставка!", parse_mode=ParseMode.MARKDOWN)
+        return
+        
+    p = await get_profile(message.from_user)
+    if p.get("coins", 0) < bet:
+        await message.answer("❌ У вас недостаточно монет!")
+        return
+        
+    slot_msg = await message.answer_dice(emoji="🎰")
+    val = slot_msg.dice.value
+    await asyncio.sleep(3)
+    
+    coins = p["coins"] - bet
+    v = val - 1
+    r1, r2, r3 = v % 4, (v // 4) % 4, (v // 16) % 4
+    
+    multiplier = 0
+    if r1 == 3 and r2 == 3 and r3 == 3:
+        multiplier = 10
+    elif r1 == 3 and r2 == 3:
+        multiplier = 5
+    elif r1 == r2 == r3:
+        multiplier = 3
+    elif r1 == r2:
+        multiplier = 2
+    else:
+        multiplier = 0
+
+    if multiplier > 0:
+        win = bet * multiplier
+        coins += win
+        res_text = f"Выигрыш x{multiplier}! (+{win} 🪙)"
+    else:
+        res_text = f"Проигрыш (-{bet} 🪙)"
+        
+    def _upd():
+        supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
+    await asyncio.to_thread(_upd)
+    
+    await message.answer(f"{res_text}\n💰 Баланс: `{coins}` 🪙", parse_mode=ParseMode.MARKDOWN)
+
+@dp.message(Command("duel"))
+async def cmd_duel(message: types.Message, state: FSMContext):
+    await state.clear()
+    if not message.reply_to_message:
+        await message.answer("⚔️ Ответьте на сообщение противника командой `/duel`", parse_mode=ParseMode.MARKDOWN)
+        return
+        
+    user1, user2 = message.from_user, message.reply_to_message.from_user
+    if user1.id == user2.id:
+        await message.answer("❌ Нельзя вызывать на дуэль себя!")
+        return
+        
+    p1, p2 = await get_profile(user1), await get_profile(user2)
+    score1 = 50 + SHOP_EQUIPMENT.get(p1.get("equipped_item", ""), {}).get("duel_buff", 0)
+    score2 = 50 + SHOP_EQUIPMENT.get(p2.get("equipped_item", ""), {}).get("duel_buff", 0)
+    
+    winner = random.choices([user1, user2], weights=[score1, score2], k=1)[0]
+    await message.answer(f"⚔️ **ДУЭЛЬ!**\n\n🏆 Победитель: **{winner.first_name}**! 🎉", parse_mode=ParseMode.MARKDOWN)
+
 @dp.message(Command("sex"))
 async def cmd_sex_text(message: types.Message, state: FSMContext):
     await state.clear()
@@ -1373,6 +1538,10 @@ async def main():
         BotCommand(command="race", description="Уличные гонки"),
         BotCommand(command="work", description="Биржа труда"),
         BotCommand(command="sex", description="Уединение с парой"),
+        BotCommand(command="dice", description="Игра в кости"),
+        BotCommand(command="coin", description="Орел и решка"),
+        BotCommand(command="slots", description="Слоты"),
+        BotCommand(command="duel", description="Дуэль"),
     ])
     asyncio.create_task(web_server())
     await dp.start_polling(bot)
