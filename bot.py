@@ -241,12 +241,21 @@ async def cmd_me(message: types.Message):
     p = get_profile(message.from_user)
     current_lvl = p.get('level', 1)
     title = LEVELS.get(current_lvl, {}).get("title", "Воин")
+    
+    partner_id = p.get("partner_id")
+    partner_name = p.get("partner_name")
+    if partner_id and str(partner_id) != "0" and partner_name and partner_name != "EMPTY":
+        marriage_status = f"💍 В браке с: **{partner_name}**"
+    else:
+        marriage_status = "💍 Статус: Свободен"
+
     text = (
         f"👤 **Профиль: {p.get('username')}**\n"
         f"⭐ Уровень: `{current_lvl}` / 67 (*{title}*)\n"
         f"✨ Опыт (XP): `{p.get('xp')}`\n"
         f"🪙 Монеты: `{p.get('coins')}`\n"
-        f"❤️ Респект: `{p.get('respect')}`"
+        f"❤️ Респект: `{p.get('respect')}`\n"
+        f"{marriage_status}"
     )
     await message.answer(text, parse_mode=ParseMode.MARKDOWN)
 
