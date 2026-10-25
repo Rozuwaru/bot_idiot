@@ -204,6 +204,8 @@ def get_profile(user: types.User):
         "xp": 0,
         "level": 1,
         "respect": 0,
+        "partner_id": 0,
+        "partner_name": "EMPTY"
     }
     res = supabase.table("users").insert(new_user).execute()
     return res.data[0] if res.data else new_user
@@ -227,7 +229,7 @@ async def cmd_all_commands(message: types.Message):
         "📋 **КОМАНДЫ RPG БОТА:**\n\n"
         "👤 **Основные:** `/me`, `/shop`, `/buy <id>`, `/inv`, `/pay <сумма>`, `/top`, `/loot`, `/work`, `/levels`, `+` (ответом на сообщение)\n"
         "⚔️ **Развлечения:** `/duel`, `/casino <ставка>`, `/roulette`, `/ball <вопрос>`\n"
-        "💍 **Отношения:** `/marry`, `/divorce`, `/partner`"
+        "💍 **Отношения:** `/marry`, `/accept`, `/reject`, `/divorce`, `/partner`"
         f"{admin_block}"
     )
     await message.answer(text, parse_mode=ParseMode.MARKDOWN)
@@ -565,26 +567,122 @@ async def cmd_duel(message: types.Message):
     )
 
 
-# --- ОТНОШЕНИЯ ---
+# --- ОТНОШЕНИЯ И БРАКИ ---
 @dp.message(Command("marry"))
 async def cmd_marry(message: types.Message):
     if not message.reply_to_message:
-        await message.answer("💍 Ответьте на сообщение пользователя для предложения.")
+        await message.answer("💍 Чтобы сделать предложение, ответьте на сообщение пользователя командой `/marry`.", parse_mode=ParseMode.MARKDOWN)
         return
+    
+    target_user = message.reply_to_message.from_user
+    if target_user.id == message.from_user.id:
+        await message.answer("Нельзя заключить брак с самим собой! 😄")
+        return
+
+    sender = get_profile(message.from_user)
+    if sender.get("partner_id") and str(sender.get("partner_id")) != "0":
+        await message.answer("💍 Вы уже состоите в браке! Сначала нужно развестись (`/divorce`).")
+        return
+
+    target = get_profile(target_user)
+    if target.get("partner_id") and str(target.get("partner_id")) != "0":
+        await message.answer("💍 Этот пользователь уже состоит в браке!")
+        return
+
     await message.answer(
-        f"💍 **{message.from_user.first_name}** делает предложение **{message.reply_to_message.from_user.first_name}**!",
+        f"💍 **{message.from_user.first_name}** делает предложение руки и сердца **{target_user.first_name}**!\n\n"
+        f"✅ Чтобы принять, ответьте на это сообщение командой `/accept`\n"
+        f"❌ Чтобы отказаться, ответьте на это сообщение командой `/reject`",
         parse_mode=ParseMode.MARKDOWN,
     )
 
 
-@dp.message(Command("divorce"))
-async def cmd_divorce(message: types.Message):
-    await message.answer("💔 Вы успешно расторгли брак.")
+@dp.message(Command("accept"))
+async def cmd_accept(message: types.Message):
+    if not message.reply_to_message:
+        await message.answer("💍 Чтобы принять предложение, ответьте на сообщение с предложением командой `/accept`.", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    proposer_user = message.reply_to_message.from_user
+    accepter_user = message.from_user
+
+    if proposer_user.id == accepter_user.id:
+        await message.answer("Нельзя принимать предложения самому себе.")
+        return
+
+    proposer = get_profile(proposer_user)
+    accepter = get_profile(accepter_user)
+
+    if proposer.get("partner_id") and str(proposer.get("partner_id")) != "0":
+        await message.answer("Этот пользователь уже занят!")
+        return
+    if accepter.get("partner_id") and str(accepter.get("partner_id")) != "0":
+        await message.answer("Вы уже состоите в браке!")
+        return
+
+    supabase.table("users").update({
+        "partner_id": str(accepter_user.id),
+        "partner_name": accepter_user.first_name
+    }).eq("user_id", str(proposer_user.id)).execute()
+
+    supabase.table("users").update({
+        "partner_id": str(proposer_user.id),
+        "partner_name": proposer_user.first_name
+    }).eq("user_id", str(accepter_user.id)).execute()
+
+    await message.answer(
+        f"🎉 Горько! 🥂 **{proposer_user.first_name}** и **{accepter_user.first_name}** официально поженились! 💍❤️",
+        parse_mode=ParseMode.MARKDOWN,
+    )
+
+
+@dp.message(Command("reject"))
+async def cmd_reject(message: types.Message):
+    if not message.reply_to_message:
+        await message.answer("💍 Чтобы отклонить предложение, ответьте на сообщение с предложением командой `/reject`.", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    proposer_user = message.reply_to_message.from_user
+    rejecter_user = message.from_user
+
+    await message.answer(
+        f"💔 **{rejecter_user.first_name}** отклонил(а) предложение руки и сердца от **{proposer_user.first_name}**. Эх...",
+        parse_mode=ParseMode.MARKDOWN,
+    )
 
 
 @dp.message(Command("partner"))
 async def cmd_partner(message: types.Message):
-    await message.answer("💍 У вас пока нет партнера.")
+    p = get_profile(message.from_user)
+    partner_id = p.get("partner_id")
+    partner_name = p.get("partner_name")
+
+    if not partner_id or str(partner_id) == "0" or not partner_name or partner_name == "EMPTY":
+        await message.answer("💍 У вас пока нет партнера. Сделайте кому-нибудь предложение через `/marry`!", parse_mode=ParseMode.MARKDOWN)
+    else:
+        await message.answer(f"💍 Ваша вторая половинка: **{partner_name}** ❤️", parse_mode=ParseMode.MARKDOWN)
+
+
+@dp.message(Command("divorce"))
+async def cmd_divorce(message: types.Message):
+    p = get_profile(message.from_user)
+    partner_id = p.get("partner_id")
+
+    if not partner_id or str(partner_id) == "0":
+        await message.answer("💔 Вы и так не состоите в браке.")
+        return
+
+    supabase.table("users").update({
+        "partner_id": 0,
+        "partner_name": "EMPTY"
+    }).eq("user_id", str(partner_id)).execute()
+
+    supabase.table("users").update({
+        "partner_id": 0,
+        "partner_name": "EMPTY"
+    }).eq("user_id", p["user_id"]).execute()
+
+    await message.answer("💔 Вы успешно расторгли брак.", parse_mode=ParseMode.MARKDOWN)
 
 
 # --- АДМИНСКИЕ КОМАНДЫ ---
@@ -670,7 +768,8 @@ async def main():
         BotCommand(command="work", description="Биржа труда (работа)"),
         BotCommand(command="duel", description="Дуэль с игроком"),
         BotCommand(command="casino", description="Сыграть в казино"),
-        BotCommand(command="marry", description="Создать пару"),
+        BotCommand(command="marry", description="Сделать предложение"),
+        BotCommand(command="partner", description="Моя вторая половинка"),
         BotCommand(command="help", description="Все команды бота"),
     ])
 
