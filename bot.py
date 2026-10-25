@@ -110,7 +110,6 @@ JOBS = {
     "4": {"name": "🐉 Охотник на чудовищ", "min_coins": 130, "max_coins": 260, "xp": 30},
 }
 
-# --- МАГАЗИН СНАРЯЖЕНИЯ (ОБОРУДОВАНИЕ ДЛЯ ОРУЖЕЙНОЙ) ---
 SHOP_EQUIPMENT = {
     "eq_1": {"name": "🪵 Деревянный меч", "price": 150, "duel_buff": 5, "desc": "Самодельное оружие. Дает +5% к победе в дуэли."},
     "eq_2": {"name": "⚔️ Железный меч", "price": 350, "duel_buff": 12, "desc": "Надежный клинок. Дает +12% к победе в дуэли."},
@@ -135,7 +134,7 @@ SHOP_CONSUMABLES = {
 }
 
 SEX_SHOP = {
-    "sex_vibe": {"name": "🟣 Реалистичный вибратор", "price": 800, "desc": "Мощная игрушка для ярких эмоций."},
+    "sex_vibe": {"name": "🟣 Вибратор", "price": 800, "desc": "Мощная игрушка для ярких эмоций."},
     "sex_gag": {"name": "🔴 Кожаный кляп", "price": 500, "desc": "Чтобы стоны не мешали соседям."},
     "sex_cuff": {"name": "⛓️ Кожаные наручники", "price": 700, "desc": "Полный контроль над партнером."},
     "sex_maid": {"name": "👗 Костюм горничной", "price": 1000, "desc": "Соблазнительный наряд."},
@@ -173,9 +172,12 @@ async def get_profile(user: types.User):
     uid = str(user.id)
     def _fetch():
         return supabase.table("users").select("*").eq("user_id", uid).execute()
-    response = await asyncio.to_thread(_fetch)
-    if response.data:
-        return response.data[0]
+    try:
+        response = await asyncio.to_thread(_fetch)
+        if response.data:
+            return response.data[0]
+    except Exception as e:
+        logging.error(f"Supabase fetch error: {e}")
 
     new_user = {
         "user_id": uid,
@@ -183,8 +185,8 @@ async def get_profile(user: types.User):
         "coins": 100, "xp": 0, "level": 1, "respect": 0,
         "partner_id": 0, "partner_name": "EMPTY",
         "inventory": "",
-        "armory": "",        # Склад купленного оружия и брони
-        "equipped_item": "", # Надетый в данный момент предмет
+        "armory": "",
+        "equipped_item": "",
         "personal_apartment": "❌ Нет",
         "personal_house": "❌ Нет",
         "personal_car": "❌ Нет",
@@ -192,9 +194,14 @@ async def get_profile(user: types.User):
         "last_smoke_time": 0
     }
     def _insert():
-        return supabase.table("users").insert(new_user).execute()
-    res = await asyncio.to_thread(_insert)
-    return res.data[0] if res.data else new_user
+        return supabase.table("users").upsert(new_user).execute()
+    try:
+        res = await asyncio.to_thread(_insert)
+        if res.data:
+            return res.data[0]
+    except Exception as e:
+        logging.error(f"Supabase insert/upsert error: {e}")
+    return new_user
 
 async def get_or_create_family(uid1: str, uid2: str):
     uids = sorted([str(uid1), str(uid2)])
@@ -203,9 +210,12 @@ async def get_or_create_family(uid1: str, uid2: str):
     def _fetch():
         return supabase.table("families").select("*").eq("family_id", fam_id).execute()
     
-    res = await asyncio.to_thread(_fetch)
-    if res.data:
-        return res.data[0]
+    try:
+        res = await asyncio.to_thread(_fetch)
+        if res.data:
+            return res.data[0]
+    except Exception:
+        pass
     
     new_fam = {
         "family_id": fam_id,
@@ -220,10 +230,14 @@ async def get_or_create_family(uid1: str, uid2: str):
         "child_hunger": 100
     }
     def _insert():
-        return supabase.table("families").insert(new_fam).execute()
-    
-    ins_res = await asyncio.to_thread(_insert)
-    return ins_res.data[0] if ins_res.data else new_fam
+        return supabase.table("families").upsert(new_fam).execute()
+    try:
+        ins_res = await asyncio.to_thread(_insert)
+        if ins_res.data:
+            return ins_res.data[0]
+    except Exception:
+        pass
+    return new_fam
 
 def get_main_keyboard(user_id: int):
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -308,7 +322,6 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
         elif action == "armory":
-            # Меню оружейной
             armory_str = p.get("armory") or ""
             arm_items = [i.strip() for i in armory_str.split(",") if i.strip()]
             equipped = p.get("equipped_item", "")
@@ -368,7 +381,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
 
         elif action == "sexshop":
-            text = "🍑 **СЕКС-ШОП «БЕЗ ТОРМОЗОВ»:**\n\nПриобретайте реалистичные игрушки и делайте интимную жизнь ярче:"
+            text = "🍑 **СЕКС-ШОП «БЕЗ ТОРМОЗОВ»:**\n\nПриобретайте реалистичные игрушки и делайте интимную жизнь ярче (предметы попадают в инвентарь):"
             buttons = []
             for item_id, data in SEX_SHOP.items():
                 buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']} 🪙", callback_data=f"buy_sex_{item_id}_{uid}")])
@@ -394,9 +407,12 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
         elif action == "top":
             def _fetch_top():
                 return supabase.table("users").select("username, level, coins").order("level", desc=True).limit(10).execute()
-            res = await asyncio.to_thread(_fetch_top)
+            try:
+                res = await asyncio.to_thread(_fetch_top)
+            except Exception:
+                res = None
             text = "🏆 **ТОП-10 ИГРОКОВ:**\n\n"
-            if res.data:
+            if res and res.data:
                 for i, u in enumerate(res.data, 1):
                     lvl = u.get('level', 1)
                     title = LEVELS.get(lvl, {}).get("title", "")
@@ -455,7 +471,6 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
         logging.error(f"Error in callback_main_menu: {e}")
         await callback.answer("❌ Произошла ошибка!", show_alert=True)
 
-# Справка по слотам
 @dp.callback_query(F.data.startswith("slots_help_"))
 async def slots_help_callback(callback: types.CallbackQuery):
     uid = callback.data.split("_")[2]
@@ -476,9 +491,9 @@ async def slots_help_callback(callback: types.CallbackQuery):
     await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
     await callback.answer()
 
-# Покупка в секс-шопе
+# Покупка в секс-шопе (теперь складывает в инвентарь)
 @dp.callback_query(F.data.startswith("buy_sex_"))
-async def buy_sex_item(callback: types.CallbackQuery):
+async def buy_sex_item(callback: types.CallbackQuery, state: FSMContext):
     parts = callback.data.split("_")
     item_key = parts[2]
     uid = parts[3]
@@ -493,10 +508,25 @@ async def buy_sex_item(callback: types.CallbackQuery):
     new_coins = p["coins"] - item["price"]
     current_inv = p.get("inventory") or ""
     updated_inv = f"{current_inv},{item_key}" if current_inv else item_key
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "inventory": updated_inv}).eq("user_id", str(uid)).execute())
-    await callback.answer(f"🍑 Успешно куплено: {item['name']}!", show_alert=True)
+    
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "inventory": updated_inv}).eq("user_id", str(uid)).execute())
+    except Exception as e:
+        logging.error(f"Supabase update error: {e}")
+        
+    await callback.answer(f"🍑 Успешно куплено: {item['name']}! Предмет добавлен в инвентарь.", show_alert=True)
+    callback.data = f"menu_sexshop_{uid}"
+    # Обновляем меню секс-шопа
+    try:
+        text = "🍑 **СЕКС-ШОП «БЕЗ ТОРМОЗОВ»:**\n\nПриобретайте реалистичные игрушки и делайте интимную жизнь ярче (предметы попадают в инвентарь):"
+        buttons = []
+        for item_id, data in SEX_SHOP.items():
+            buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']} 🪙", callback_data=f"buy_sex_{item_id}_{uid}")])
+        buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")])
+        await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+    except Exception:
+        pass
 
-# --- МАГАЗИН ЛИЧНОГО ИМУЩЕСТВА ---
 @dp.callback_query(F.data.startswith("pers_shop_apt_"))
 async def pers_shop_apt(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
@@ -562,17 +592,19 @@ async def pers_buy_item(callback: types.CallbackQuery, state: FSMContext):
         return
         
     new_coins = p["coins"] - item_data["price"]
-    await asyncio.to_thread(lambda: supabase.table("users").update({
-        "coins": new_coins,
-        col_name: item_data["name"]
-    }).eq("user_id", str(uid)).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({
+            "coins": new_coins,
+            col_name: item_data["name"]
+        }).eq("user_id", str(uid)).execute())
+    except Exception as e:
+        logging.error(f"Supabase error: {e}")
     
     await callback.answer(f"🎉 Успешно куплено: {item_data['name']}!", show_alert=True)
     callback.data = f"menu_personal_{uid}"
     await callback_main_menu(callback, state)
 
 
-# --- СЕМЕЙНОЕ МЕНЮ И УПРАВЛЕНИЕ БЮДЖЕТОМ / ДЕТЬМИ ---
 @dp.callback_query(F.data == "family_main")
 async def callback_family_main(callback: types.CallbackQuery, state: FSMContext):
     try:
@@ -664,10 +696,13 @@ async def fam_buy_specific_item(callback: types.CallbackQuery, state: FSMContext
         col_name = column_map[category]
         
         new_budget = fam["budget"] - item_data["price"]
-        await asyncio.to_thread(lambda: supabase.table("families").update({
-            "budget": new_budget,
-            col_name: item_data["name"]
-        }).eq("family_id", fam_id).execute())
+        try:
+            await asyncio.to_thread(lambda: supabase.table("families").update({
+                "budget": new_budget,
+                col_name: item_data["name"]
+            }).eq("family_id", fam_id).execute())
+        except Exception:
+            pass
         
         await callback.answer(f"🎉 Успешно приобретено: {item_data['name']}!", show_alert=True)
         await callback_family_main(callback, state)
@@ -702,10 +737,13 @@ async def callback_family_actions(callback: types.CallbackQuery, state: FSMConte
             if fam["child_name"] == "❌ Нет":
                 await callback.answer("❌ У вас нет ребенка!", show_alert=True)
                 return
-            await asyncio.to_thread(lambda: supabase.table("families").update({
-                "child_name": "❌ Нет",
-                "child_hunger": 100
-            }).eq("family_id", fam_id).execute())
+            try:
+                await asyncio.to_thread(lambda: supabase.table("families").update({
+                    "child_name": "❌ Нет",
+                    "child_hunger": 100
+                }).eq("family_id", fam_id).execute())
+            except Exception:
+                pass
             await callback.answer("🗑 Ребенок был отдан в приют.", show_alert=True)
             await callback_family_main(callback, state)
             return
@@ -714,10 +752,13 @@ async def callback_family_actions(callback: types.CallbackQuery, state: FSMConte
             if fam["budget"] < 50:
                 await callback.answer("❌ В семейном бюджете недостаточно средств (нужно 50 🪙)!", show_alert=True)
                 return
-            await asyncio.to_thread(lambda: supabase.table("families").update({
-                "budget": fam["budget"] - 50,
-                "food": fam["food"] + 20
-            }).eq("family_id", fam_id).execute())
+            try:
+                await asyncio.to_thread(lambda: supabase.table("families").update({
+                    "budget": fam["budget"] - 50,
+                    "food": fam["food"] + 20
+                }).eq("family_id", fam_id).execute())
+            except Exception:
+                pass
             await callback.answer("✅ Куплено 20 ед. продуктов в семью!", show_alert=True)
                 
         elif action == "buy" and callback.data.split("_")[2] == "child":
@@ -745,10 +786,13 @@ async def callback_family_actions(callback: types.CallbackQuery, state: FSMConte
                 await callback.answer("❌ В семье закончилась еда! Купите продукты в меню семьи.", show_alert=True)
                 return
             new_hunger = min(100, fam["child_hunger"] + 35)
-            await asyncio.to_thread(lambda: supabase.table("families").update({
-                "food": fam["food"] - 10,
-                "child_hunger": new_hunger
-            }).eq("family_id", fam_id).execute())
+            try:
+                await asyncio.to_thread(lambda: supabase.table("families").update({
+                    "food": fam["food"] - 10,
+                    "child_hunger": new_hunger
+                }).eq("family_id", fam_id).execute())
+            except Exception:
+                pass
             await callback.answer(f"🍼 Вы покормили ребенка. Сытость: {new_hunger}/100", show_alert=True)
             
         elif action == "play":
@@ -784,8 +828,11 @@ async def process_deposit_amount(message: types.Message, state: FSMContext):
     new_user_coins = p["coins"] - amount
     new_budget = current_budget + amount
     
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_user_coins}).eq("user_id", p["user_id"]).execute())
-    await asyncio.to_thread(lambda: supabase.table("families").update({"budget": new_budget}).eq("family_id", fam_id).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_user_coins}).eq("user_id", p["user_id"]).execute())
+        await asyncio.to_thread(lambda: supabase.table("families").update({"budget": new_budget}).eq("family_id", fam_id).execute())
+    except Exception:
+        pass
     
     await state.clear()
     await message.answer(f"✅ Вы успешно внесли `{amount}` монет в семейный бюджет! 💵 (Общий бюджет: `{new_budget}` 🪙)", parse_mode=ParseMode.MARKDOWN)
@@ -803,16 +850,18 @@ async def process_child_name(message: types.Message, state: FSMContext):
     current_budget = data.get("current_budget")
     
     new_budget = current_budget - cost
-    await asyncio.to_thread(lambda: supabase.table("families").update({
-        "budget": new_budget,
-        "child_name": child_name,
-        "child_hunger": 100
-    }).eq("family_id", fam_id).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("families").update({
+            "budget": new_budget,
+            "child_name": child_name,
+            "child_hunger": 100
+        }).eq("family_id", fam_id).execute())
+    except Exception:
+        pass
     
     await state.clear()
     await message.answer(f"🎉 Поздравляем! У вас родился ребенок по имени **{child_name}**! 👶🍼", parse_mode=ParseMode.MARKDOWN)
 
-# Отрисовка магазинов снаряжения (теперь отправляет в Оружейную, без XP/монет)
 @dp.callback_query(F.data.startswith("shop_eq_list_"))
 async def callback_shop_eq(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
@@ -864,13 +913,16 @@ async def callback_buy_eq(callback: types.CallbackQuery, state: FSMContext):
     armory_str = p.get("armory") or ""
     updated_armory = f"{armory_str},{item_id}" if armory_str else item_id
     
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "armory": updated_armory}).eq("user_id", str(uid)).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "armory": updated_armory}).eq("user_id", str(uid)).execute())
+    except Exception as e:
+        logging.error(f"Supabase update error: {e}")
+        
     await callback.answer(f"✅ {item['name']} добавлен в вашу Оружейную!", show_alert=True)
     
     callback.data = f"menu_armory_{uid}"
     await callback_main_menu(callback, state)
 
-# Надеть предмет из оружейной
 @dp.callback_query(F.data.startswith("equip_item_"))
 async def callback_equip_item(callback: types.CallbackQuery, state: FSMContext):
     try:
@@ -890,7 +942,11 @@ async def callback_equip_item(callback: types.CallbackQuery, state: FSMContext):
             
         item_info = SHOP_EQUIPMENT.get(item_key, {"name": item_key})
         
-        await asyncio.to_thread(lambda: supabase.table("users").update({"equipped_item": item_key}).eq("user_id", uid).execute())
+        try:
+            await asyncio.to_thread(lambda: supabase.table("users").update({"equipped_item": item_key}).eq("user_id", uid).execute())
+        except Exception:
+            pass
+            
         await callback.answer(f"🟢 Вы надели: {item_info['name']}!", show_alert=True)
         
         callback.data = f"menu_armory_{uid}"
@@ -899,7 +955,6 @@ async def callback_equip_item(callback: types.CallbackQuery, state: FSMContext):
         logging.error(f"Error in equip_item: {e}")
         await callback.answer("❌ Ошибка при экипировке!", show_alert=True)
 
-# Снять экипировку
 @dp.callback_query(F.data.startswith("unequip_item_"))
 async def callback_unequip_item(callback: types.CallbackQuery, state: FSMContext):
     uid = callback.data.split("_")[2]
@@ -907,7 +962,11 @@ async def callback_unequip_item(callback: types.CallbackQuery, state: FSMContext
         await callback.answer("❌ Это не ваше меню!", show_alert=True)
         return
         
-    await asyncio.to_thread(lambda: supabase.table("users").update({"equipped_item": ""}).eq("user_id", uid).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"equipped_item": ""}).eq("user_id", uid).execute())
+    except Exception:
+        pass
+        
     await callback.answer("🛑 Экипировка снята.", show_alert=True)
     
     callback.data = f"menu_armory_{uid}"
@@ -932,7 +991,11 @@ async def callback_buy_cons(callback: types.CallbackQuery):
     current_inv = p.get("inventory") or ""
     updated_inv = f"{current_inv},{item_id}" if current_inv else item_id
     
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "inventory": updated_inv}).eq("user_id", str(uid)).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "inventory": updated_inv}).eq("user_id", str(uid)).execute())
+    except Exception as e:
+        logging.error(f"Supabase update error: {e}")
+        
     await callback.answer(f"✅ {item['name']} добавлен в инвентарь!", show_alert=True)
 
 @dp.callback_query(F.data.startswith("use_item_"))
@@ -1033,9 +1096,12 @@ async def callback_use_item(callback: types.CallbackQuery):
         for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
             if xp >= data["xp"]: new_level = lvl
 
-        await asyncio.to_thread(lambda: supabase.table("users").update({
-            "coins": coins, "xp": xp, "respect": respect, "level": new_level, "inventory": new_inv_str, "smoking_level": smoking_level
-        }).eq("user_id", uid).execute())
+        try:
+            await asyncio.to_thread(lambda: supabase.table("users").update({
+                "coins": coins, "xp": xp, "respect": respect, "level": new_level, "inventory": new_inv_str, "smoking_level": smoking_level
+            }).eq("user_id", uid).execute())
+        except Exception as e:
+            logging.error(f"Supabase update error: {e}")
         
         await callback.answer(effect_message, show_alert=True)
         
@@ -1082,13 +1148,15 @@ async def callback_do_work(callback: types.CallbackQuery):
         for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
             if new_xp >= data["xp"]: new_level = lvl
             
-        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
+        try:
+            await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
+        except Exception:
+            pass
         await callback.answer(f"✅ Смена окончена! +{earned_coins} 🪙, +{earned_xp} XP", show_alert=True)
     except Exception as e:
         logging.error(f"Error in do_work: {e}")
         await callback.answer("❌ Ошибка при работе!", show_alert=True)
 
-# --- ИНТИМНАЯ СИСТЕМА С ТОВАРАМИ СЕКС-ШОПА ---
 @dp.callback_query(F.data == "action_sex")
 async def callback_action_sex(callback: types.CallbackQuery):
     await process_sex_action(callback.message, callback.from_user)
@@ -1122,7 +1190,10 @@ async def process_sex_action(message_obj, user_obj):
         for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
             if new_xp >= data["xp"]: new_level = lvl
             
-        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", p["user_id"]).execute())
+        try:
+            await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", p["user_id"]).execute())
+        except Exception:
+            pass
         
         inv = p.get("inventory", "")
         has_vibe = "sex_vibe" in inv
@@ -1148,7 +1219,7 @@ async def process_sex_action(message_obj, user_obj):
         if has_whip:
             desc += f"🖤 Легкие удары хлыстом заставляют кожу гореть, а кровь бурлить от адреналина.\n"
         if has_vibe:
-            desc += f"🟣 Мощный реалистичный вибратор доводит тело до судорог и безумия под глухие всхлипы...\n"
+            desc += f"🟣 Мощный вибратор доводит тело до судорог и безумия под глухие всхлипы...\n"
         
         if not (has_vibe or has_gag or has_cuff or has_maid or has_whip or has_oil or has_mask):
             desc += "Дикие, безудержные стоны наполняют комнату, тела сплетаются в единое целое в жестком и страстном ритме... 💦👅\n"
@@ -1222,9 +1293,12 @@ async def cmd_top(message: types.Message, state: FSMContext):
     await state.clear()
     def _fetch_top():
         return supabase.table("users").select("username, level, coins").order("level", desc=True).limit(10).execute()
-    res = await asyncio.to_thread(_fetch_top)
+    try:
+        res = await asyncio.to_thread(_fetch_top)
+    except Exception:
+        res = None
     text = "🏆 **ТОП-10 ИГРОКОВ:**\n\n"
-    if res.data:
+    if res and res.data:
         for i, u in enumerate(res.data, 1):
             lvl = u.get('level', 1)
             title = LEVELS.get(lvl, {}).get("title", "")
@@ -1255,7 +1329,10 @@ async def cmd_work(message: types.Message, state: FSMContext):
     new_level = p.get("level", 1)
     for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
         if new_xp >= data["xp"]: new_level = lvl
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
+    except Exception:
+        pass
     await message.answer(f"✅ Вы отработали как **{job['name']}**!\n🪙 `+{earned_coins}` монет\n✨ `+{earned_xp} XP`", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("pay"))
@@ -1277,8 +1354,11 @@ async def cmd_pay(message: types.Message, state: FSMContext):
     receiver_user = message.reply_to_message.from_user
     if receiver_user.id == message.from_user.id: return
     receiver = await get_profile(receiver_user)
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": sender["coins"] - amount}).eq("user_id", sender["user_id"]).execute())
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": receiver["coins"] + amount}).eq("user_id", receiver["user_id"]).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": sender["coins"] - amount}).eq("user_id", sender["user_id"]).execute())
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": receiver["coins"] + amount}).eq("user_id", receiver["user_id"]).execute())
+    except Exception:
+        pass
     await message.answer(f"💸 Переведено `{amount}` монет **{receiver['username']}**!", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(F.text == "+")
@@ -1288,7 +1368,10 @@ async def give_respect(message: types.Message):
     if target.id == message.from_user.id: return
     p = await get_profile(target)
     new_respect = p.get("respect", 0) + 1
-    await asyncio.to_thread(lambda: supabase.table("users").update({"respect": new_respect}).eq("user_id", str(target.id)).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"respect": new_respect}).eq("user_id", str(target.id)).execute())
+    except Exception:
+        pass
     await message.answer(f"👍 Респект **{target.first_name}** повышен! (`{new_respect}`)", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("dice"))
@@ -1339,10 +1422,16 @@ async def cmd_dice(message: types.Message, state: FSMContext):
         win = int(bet * mult)
         coins += win
         profit = win - bet
-        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+        try:
+            await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+        except Exception:
+            pass
         await message.answer(f"🎲 Выпало **{roll}**! Вы угадали! 🎉 Вы выиграли `+{profit}` монет (множитель x{mult})! 💰 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
     else:
-        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+        try:
+            await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+        except Exception:
+            pass
         await message.answer(f"🎲 Выпало **{roll}**. К сожалению, вы проиграли `{bet}` монет. 💸 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("coin"))
@@ -1385,10 +1474,16 @@ async def cmd_coin(message: types.Message, state: FSMContext):
         win = bet * 2
         coins += win
         profit = win - bet
-        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+        try:
+            await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+        except Exception:
+            pass
         await message.answer(f"🪙 Выпал **{result}**! Поздравляем, вы угадали и выиграли `+{profit}` монет! 🎉 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
     else:
-        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+        try:
+            await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+        except Exception:
+            pass
         await message.answer(f"🪙 Выпал **{result}**. Вы проиграли `{bet}` монет. 💸 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("slots"))
@@ -1454,7 +1549,10 @@ async def cmd_slots(message: types.Message, state: FSMContext):
     else:
         res_text = f"🎰 Выпало: {s1} {s2} {s3}\n{desc} Проигрыш `{bet}` монет. 💸"
         
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
+    except Exception:
+        pass
     await message.answer(f"{res_text}\n💰 Баланс: `{coins}` 🪙", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("ball"))
@@ -1463,7 +1561,6 @@ async def cmd_ball(message: types.Message, state: FSMContext):
     answers = ["Да", "Нет", "Скорее всего да", "Точно нет", "Спроси позже", "Определенно да"]
     await message.answer(f"🎱 Шар говорит: *{random.choice(answers)}*", parse_mode=ParseMode.MARKDOWN)
 
-# --- ДУЭЛЬ С УЧЕТОМ НАДЕТОЙ ЭКИПИРОВКИ ---
 @dp.message(Command("duel"))
 async def cmd_duel(message: types.Message, state: FSMContext):
     await state.clear()
@@ -1480,19 +1577,16 @@ async def cmd_duel(message: types.Message, state: FSMContext):
     p1 = await get_profile(user1)
     p2 = await get_profile(user2)
     
-    # Считаем базовый шанс 50/50 + бафф от экипировки
     eq1 = p1.get("equipped_item", "")
     eq2 = p2.get("equipped_item", "")
     
     buff1 = SHOP_EQUIPMENT.get(eq1, {}).get("duel_buff", 0)
     buff2 = SHOP_EQUIPMENT.get(eq2, {}).get("duel_buff", 0)
     
-    # Итоговый вес победы
     score1 = 50 + buff1
     score2 = 50 + buff2
     
     winner = random.choices([user1, user2], weights=[score1, score2], k=1)[0]
-    loser = user2 if winner.id == user1.id else user1
     
     eq_text1 = f" (Экипировка: {SHOP_EQUIPMENT[eq1]['name']})" if eq1 in SHOP_EQUIPMENT else ""
     eq_text2 = f" (Экипировка: {SHOP_EQUIPMENT[eq2]['name']})" if eq2 in SHOP_EQUIPMENT else ""
@@ -1549,8 +1643,15 @@ async def callback_marry(callback: types.CallbackQuery, state: FSMContext):
         if accepter.id == proposer_id:
             await callback.answer("Нельзя ответить на свое предложение!", show_alert=True)
             return
-        proposer_res = supabase.table("users").select("*").eq("user_id", str(proposer_id)).execute()
-        if not proposer_res.data:
+        
+        def _fetch_prop():
+            return supabase.table("users").select("*").eq("user_id", str(proposer_id)).execute()
+        try:
+            proposer_res = await asyncio.to_thread(_fetch_prop)
+        except Exception:
+            proposer_res = None
+            
+        if not proposer_res or not proposer_res.data:
             await callback.message.edit_text("💔 Инициатор не найден.")
             return
         proposer_data = proposer_res.data[0]
@@ -1559,8 +1660,11 @@ async def callback_marry(callback: types.CallbackQuery, state: FSMContext):
             await callback.message.edit_text(f"💔 **{accepter.first_name}** отклонил(а) предложение.")
             return
 
-        await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": str(accepter.id), "partner_name": accepter.first_name}).eq("user_id", str(proposer_id)).execute())
-        await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": str(proposer_id), "partner_name": proposer_data["username"]}).eq("user_id", str(accepter.id)).execute())
+        try:
+            await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": str(accepter.id), "partner_name": accepter.first_name}).eq("user_id", str(proposer_id)).execute())
+            await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": str(proposer_id), "partner_name": proposer_data["username"]}).eq("user_id", str(accepter.id)).execute())
+        except Exception:
+            pass
         await callback.message.edit_text(f"🎉 Горько! **{proposer_data['username']}** и **{accepter.first_name}** поженились! 💍❤️ Теперь вам доступно меню семьи в профиле отношений.")
     except Exception as e:
         logging.error(f"Error in marry callback: {e}")
@@ -1584,8 +1688,11 @@ async def cmd_divorce(message: types.Message, state: FSMContext):
     if not pid or str(pid) == "0":
         await message.answer("💔 Вы не в браке.", parse_mode=ParseMode.MARKDOWN)
         return
-    await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY"}).eq("user_id", str(pid)).execute())
-    await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY"}).eq("user_id", p["user_id"]).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY"}).eq("user_id", str(pid)).execute())
+        await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY"}).eq("user_id", p["user_id"]).execute())
+    except Exception:
+        pass
     await message.answer("💔 Развод оформлен.", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("sex"))
@@ -1608,7 +1715,10 @@ async def admin_add_coins(message: types.Message, state: FSMContext):
     if not await verify_admin(message): return
     amount = int(message.text.split()[1])
     target = await get_profile(message.reply_to_message.from_user)
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": target["coins"] + amount}).eq("user_id", target["user_id"]).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": target["coins"] + amount}).eq("user_id", target["user_id"]).execute())
+    except Exception:
+        pass
     await message.answer(f"🛡 Добавлено `{amount}` монет.", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("set_coins"))
@@ -1617,7 +1727,10 @@ async def admin_set_coins(message: types.Message, state: FSMContext):
     if not await verify_admin(message): return
     amount = int(message.text.split()[1])
     target = await get_profile(message.reply_to_message.from_user)
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": amount}).eq("user_id", target["user_id"]).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": amount}).eq("user_id", target["user_id"]).execute())
+    except Exception:
+        pass
     await message.answer(f"🛡 Баланс установлен на `{amount}`.", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("add_xp"))
@@ -1630,7 +1743,10 @@ async def admin_add_xp(message: types.Message, state: FSMContext):
     new_lvl = target.get("level", 1)
     for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
         if new_xp >= data["xp"]: new_lvl = lvl
-    await asyncio.to_thread(lambda: supabase.table("users").update({"xp": new_xp, "level": new_lvl}).eq("user_id", target["user_id"]).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"xp": new_xp, "level": new_lvl}).eq("user_id", target["user_id"]).execute())
+    except Exception:
+        pass
     await message.answer(f"🛡 Добавлено `+{amount} XP`.", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("set_level"))
@@ -1640,7 +1756,10 @@ async def admin_set_level(message: types.Message, state: FSMContext):
     lvl = int(message.text.split()[1])
     target = await get_profile(message.reply_to_message.from_user)
     req_xp = LEVELS[lvl]["xp"]
-    await asyncio.to_thread(lambda: supabase.table("users").update({"level": lvl, "xp": req_xp}).eq("user_id", target["user_id"]).execute())
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"level": lvl, "xp": req_xp}).eq("user_id", target["user_id"]).execute())
+    except Exception:
+        pass
     await message.answer(f"🛡 Уровень изменен на `{lvl}`.", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(F.text)
@@ -1657,8 +1776,11 @@ async def process_message_xp(message: types.Message, state: FSMContext):
     for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
         if new_xp >= data["xp"]: new_level = lvl
     if new_level > p.get("level", 1):
-        await message.answer(f"🎉 Уровень **{message.from_user.first_name}** повышен до `{new_level}`!", parse_Mode=ParseMode.MARKDOWN)
-    await asyncio.to_thread(lambda: supabase.table("users").update({"xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
+        await message.answer(f"🎉 Уровень **{message.from_user.first_name}** повышен до `{new_level}`!", parse_mode=ParseMode.MARKDOWN)
+    try:
+        await asyncio.to_thread(lambda: supabase.table("users").update({"xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
+    except Exception:
+        pass
 
 async def handle_ping(request):
     return web.Response(text="Бот работает!")
