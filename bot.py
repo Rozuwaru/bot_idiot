@@ -163,7 +163,6 @@ CARS_CAT = {
 }
 
 def format_age(seconds: int) -> str:
-    """Переводит секунды в читаемый возраст (дни, часы, минуты)."""
     days = seconds // 86400
     hours = (seconds % 86400) // 3600
     minutes = (seconds % 3600) // 60
@@ -176,7 +175,6 @@ def format_age(seconds: int) -> str:
     return " ".join(res)
 
 def get_child_age(birth_time: int) -> str:
-    """3 реальных дня = 1 игровой год (1 год = 259200 секунд)."""
     if not birth_time:
         return "0 лет"
     diff = time.time() - birth_time
@@ -480,7 +478,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 "• `/duel` (Дуэль с экипировкой)\n\n"
             )
             kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="📖 Справка по слотам", callback_data=f"slots_help_{uid}")],
+                [InlineKeyboardButton(text="🎰 Комбинации слотов", callback_data=f"slots_help_{uid}")],
                 [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
             ])
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
@@ -516,11 +514,11 @@ async def slots_help_callback(callback: types.CallbackQuery):
         await callback.answer("❌ Это не ваше меню!", show_alert=True)
         return
     text = (
-        "🎰 **ПРАВИЛА И КОМБИНАЦИИ СЛОТОВ:**\n\n"
-        "Правило: регистрируются только **первые 2 символа** слева!\n"
-        "• 👑 **77** — x3\n"
-        "• ✨ **Любые другие 2 одинаковых** первых символа — x2\n"
-        "• ❌ Разные первые два символа — проигрыш"
+        "🎰 **КОМБИНАЦИИ СЛОТОВ:**\n\n"
+        "• 7️⃣7️⃣7️⃣ — x10\n"
+        "• 7️⃣7️⃣... — x5\n"
+        "• 3 одинаковых символа — x3\n"
+        "• Одинаковые первые 2 символа — x2"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🔙 Назад в казино", callback_data=f"menu_casino_{uid}")]
@@ -530,12 +528,15 @@ async def slots_help_callback(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data.startswith("buy_sex_"))
 async def buy_sex_item(callback: types.CallbackQuery, state: FSMContext):
+    # Безопасный парсинг с конца (последний элемент - uid, предпоследний - ключ товара)
     parts = callback.data.split("_")
-    item_key = parts[2]
-    uid = parts[3]
+    uid = parts[-1]
+    item_key = "_".join(parts[2:-1])
+    
     if str(callback.from_user.id) != uid:
         await callback.answer("❌ Это не ваше меню!", show_alert=True)
         return
+        
     item = SEX_SHOP[item_key]
     p = await get_profile(callback.from_user)
     if p.get("coins", 0) < item["price"]:
@@ -1017,13 +1018,16 @@ async def callback_unequip_item(callback: types.CallbackQuery, state: FSMContext
 
 @dp.callback_query(F.data.startswith("buy_cons_"))
 async def callback_buy_cons(callback: types.CallbackQuery, state: FSMContext):
+    # Безопасный парсинг с конца для составных ключей продуктов (например beer_okhota)
     parts = callback.data.split("_")
-    item_id = f"{parts[2]}_{parts[3]}"
-    uid = parts[4]
+    uid = parts[-1]
+    item_key = "_".join(parts[2:-1])
+    
     if str(callback.from_user.id) != uid:
         await callback.answer("❌ Это не ваше меню!", show_alert=True)
         return
-    item = SHOP_CONSUMABLES[item_id]
+        
+    item = SHOP_CONSUMABLES[item_key]
     p = await get_profile(callback.from_user)
     
     if p.get("coins", 0) < item["price"]:
@@ -1032,7 +1036,7 @@ async def callback_buy_cons(callback: types.CallbackQuery, state: FSMContext):
         
     new_coins = p["coins"] - item["price"]
     current_inv = p.get("inventory") or ""
-    updated_inv = f"{current_inv},{item_id}" if current_inv else item_id
+    updated_inv = f"{current_inv},{item_key}" if current_inv else item_key
     
     try:
         await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "inventory": updated_inv}).eq("user_id", str(uid)).execute())
@@ -1559,22 +1563,32 @@ async def cmd_slots(message: types.Message, state: FSMContext):
     coins = p["coins"] - bet
     v = val - 1
     r1, r2, r3 = v % 4, (v // 4) % 4, (v // 16) % 4
-    symbols = ["🍋", "🍇", "🔔", "7️⃣"]
-    s1, s2, s3 = symbols[r1], symbols[r2], symbols[r3]
     
-    if r1 == r2:
-        multiplier = 3 if r1 == 3 else 2
-        res_text = f"🎰 Выпало: {s1} {s2} {s3}\nВыигрыш x{multiplier}!"
+    multiplier = 0
+    if r1 == 3 and r2 == 3 and r3 == 3:
+        multiplier = 10  # 777
+    elif r1 == 3 and r2 == 3:
+        multiplier = 5   # 77...
+    elif r1 == r2 == r3:
+        multiplier = 3   # 3 одинаковых
+    elif r1 == r2:
+        multiplier = 2   # первые 2 одинаковых
+    else:
+        multiplier = 0   # проигрыш
+
+    if multiplier > 0:
         win = bet * multiplier
         coins += win
+        res_text = f"Выигрыш x{multiplier}! (+{win} 🪙)"
     else:
-        multiplier = 0
-        res_text = f"🎰 Выпало: {s1} {s2} {s3}\nРазные первые символы. Проигрыш."
+        res_text = f"Проигрыш (-{bet} 🪙)"
         
     try:
         await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
     except Exception:
         pass
+    
+    # Только коэффициент/проигрыш и баланс, без указания выпавших смайликов
     await message.answer(f"{res_text}\n💰 Баланс: `{coins}` 🪙", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("ball"))
