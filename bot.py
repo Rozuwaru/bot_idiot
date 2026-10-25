@@ -192,6 +192,17 @@ def is_admin(user: types.User) -> bool:
         return False
     return user.username.lower() in {u.lower() for u in ADMIN_USERNAMES}
 
+async def get_profile_by_id(uid: str):
+    def _fetch():
+        return supabase.table("users").select("*").eq("user_id", str(uid)).execute()
+    try:
+        res = await asyncio.to_thread(_fetch)
+        if res.data:
+            return res.data[0]
+    except Exception as e:
+        logging.error(f"Error fetching profile by id: {e}")
+    return None
+
 async def get_profile(user: types.User):
     uid = str(user.id)
     now = int(time.time())
@@ -201,9 +212,16 @@ async def get_profile(user: types.User):
         response = await asyncio.to_thread(_fetch)
         if response.data:
             user_data = response.data[0]
+            updates = {}
             if not user_data.get("created_at") or int(user_data.get("created_at", 0)) == 0:
-                supabase.table("users").update({"created_at": now}).eq("user_id", uid).execute()
+                updates["created_at"] = now
                 user_data["created_at"] = now
+            if user_data.get("partner_id") and str(user_data.get("partner_id")) != "0":
+                if not user_data.get("marriage_time") or int(user_data.get("marriage_time", 0)) == 0:
+                    updates["marriage_time"] = now
+                    user_data["marriage_time"] = now
+            if updates:
+                supabase.table("users").update(updates).eq("user_id", uid).execute()
             return user_data
     except Exception as e:
         logging.error(f"Supabase fetch error: {e}")
@@ -245,7 +263,12 @@ async def get_or_create_family(uid1: str, uid2: str):
     try:
         res = await asyncio.to_thread(_fetch)
         if res.data:
-            return res.data[0]
+            fam_data = res.data[0]
+            if not fam_data.get("child_birth_time") or int(fam_data.get("child_birth_time", 0)) == 0:
+                if fam_data.get("child_name") and fam_data.get("child_name") != "❌ Нет":
+                    supabase.table("families").update({"child_birth_time": int(time.time())}).eq("family_id", fam_id).execute()
+                    fam_data["child_birth_time"] = int(time.time())
+            return fam_data
     except Exception:
         pass
     
@@ -260,7 +283,7 @@ async def get_or_create_family(uid1: str, uid2: str):
         "car": "❌ Нет",
         "child_name": "❌ Нет",
         "child_hunger": 100,
-        "child_birth_time": 0
+        "child_birth_time": int(time.time())
     }
     def _insert():
         return supabase.table("families").upsert(new_fam).execute()
@@ -459,20 +482,23 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             
         elif action == "top":
             def _fetch_top():
-                return supabase.table("users").select("username, level, coins").order("level", desc=True).limit(10).execute()
+                return supabase.table("users").select("user_id, username, level, coins").order("level", desc=True).limit(10).execute()
             try:
                 res = await asyncio.to_thread(_fetch_top)
             except Exception:
                 res = None
-            text = "🏆 **ТОП-10 ИГРОКОВ:**\n\n"
+            text = "🏆 **ТОП-10 ИГРОКОВ:**\nНажмите на игрока, чтобы посмотреть его профиль:\n\n"
+            buttons = []
             if res and res.data:
                 for i, u in enumerate(res.data, 1):
                     lvl = u.get('level', 1)
                     title = LEVELS.get(lvl, {}).get("title", "")
                     text += f"{i}. **{u.get('username')}** — Ур. `{lvl}` (*{title}*) | 🪙 `{u.get('coins')}`\n"
+                    buttons.append([InlineKeyboardButton(text=f"👤 Профиль: {u.get('username')}", callback_data=f"view_profile_{u.get('user_id')}")])
             else:
                 text += "Игроков пока нет."
-            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]])
+            buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")])
+            kb = InlineKeyboardMarkup(inline_keyboard=buttons)
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
         elif action == "work":
@@ -524,6 +550,57 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
     except Exception as e:
         logging.error(f"Error in callback_main_menu: {e}")
         await callback.answer("❌ Произошла ошибка!", show_alert=True)
+
+# --- ПРОСМОТР ЧУЖОГО ПРОФИЛЯ ---
+
+@dp.callback_query(F.data.startswith("view_profile_"))
+async def view_other_profile(callback: types.CallbackQuery):
+    target_uid = callback.data.split("_")[2]
+    p = await get_profile_by_id(target_uid)
+    if not p:
+        await callback.answer("❌ Профиль не найден!", show_alert=True)
+        return
+
+    lvl = p.get('level', 1)
+    title = LEVELS.get(lvl, {}).get("title", "Воин")
+    pid, pname = p.get("partner_id"), p.get("partner_name")
+    
+    created_at = int(p.get("created_at") or time.time())
+    bot_age = format_age(int(time.time()) - created_at)
+    
+    if pid and str(pid) != "0" and pname != "EMPTY":
+        m_time = int(p.get("marriage_time") or time.time())
+        marriage_duration = format_age(int(time.time()) - m_time)
+        marriage = f"💍 В браке с: **{pname}** (уже {marriage_duration})"
+    else:
+        marriage = "💍 Статус: Свободен"
+
+    smoke_lvl = p.get('smoking_level', 0)
+    smoke_status = f"🚬 Никотиновая зависимость: Уровень `{smoke_lvl}`" if smoke_lvl > 0 else "🚭 Не курит"
+    equipped = p.get("equipped_item", "")
+    eq_name = SHOP_EQUIPMENT.get(equipped, {}).get("name", "❌ Ничего не надето")
+    music_status = "🎵 Установлена" if p.get("profile_music") else "❌ Нет"
+
+    text = (
+        f"👤 **Профиль игрока: {p.get('username')}** (Просмотр)\n"
+        f"⏳ Возраст в боте: `{bot_age}`\n"
+        f"⭐ Уровень: `{lvl}` / 67 (*{title}*)\n"
+        f"✨ Опыт (XP): `{p.get('xp')}`\n"
+        f"🪙 Монеты: `{p.get('coins')}`\n"
+        f"❤️ Респект: `{p.get('respect')}`\n"
+        f"⚔️ Экипировка: `{eq_name}`\n"
+        f"🎶 Музыка в профиле: `{music_status}`\n"
+        f"{smoke_status}\n"
+        f"{marriage}"
+    )
+
+    buttons = []
+    if p.get("profile_music"):
+        buttons.append([InlineKeyboardButton(text="🎧 Прослушать музыку", callback_data=f"play_music_{target_uid}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Назад в меню", callback_data=f"back_home_{callback.from_user.id}")])
+
+    await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+    await callback.answer()
 
 # --- МУЗЫКА В ПРОФИЛЕ ---
 
@@ -592,20 +669,14 @@ async def not_audio_music(message: types.Message):
 async def play_profile_music(callback: types.CallbackQuery):
     parts = callback.data.split("_")
     target_uid = parts[2]
-    def _fetch():
-        return supabase.table("users").select("profile_music, username").eq("user_id", target_uid).execute()
-    try:
-        res = await asyncio.to_thread(_fetch)
-        if res.data and res.data[0].get("profile_music"):
-            file_id = res.data[0]["profile_music"]
-            uname = res.data[0]["username"]
-            await callback.message.answer_audio(audio=file_id, caption=f"🎵 Музыка из профиля игрока {uname}")
-            await callback.answer("🎶 Воспроизведение...")
-        else:
-            await callback.answer("❌ У этого игрока не установлена музыка в профиле!", show_alert=True)
-    except Exception as e:
-        logging.error(f"Error playing music: {e}")
-        await callback.answer("❌ Ошибка при воспроизведении!", show_alert=True)
+    p = await get_profile_by_id(target_uid)
+    if p and p.get("profile_music"):
+        file_id = p["profile_music"]
+        uname = p["username"]
+        await callback.message.answer_audio(audio=file_id, caption=f"🎵 Музыка из профиля игрока {uname}")
+        await callback.answer("🎶 Воспроизведение...")
+    else:
+        await callback.answer("❌ У этого игрока не установлена музыка в профиле!", show_alert=True)
 
 @dp.callback_query(F.data.startswith("del_music_"))
 async def delete_profile_music(callback: types.CallbackQuery, state: FSMContext):
@@ -621,7 +692,7 @@ async def delete_profile_music(callback: types.CallbackQuery, state: FSMContext)
     callback.data = f"menu_profile_{uid}"
     await callback_main_menu(callback, state)
 
-# --- СЛОТЫ И ДРУГИЕ КОМПОНЕНТЫ ---
+# --- СЛОТЫ И ИГРЫ ---
 
 @dp.callback_query(F.data.startswith("slots_help_"))
 async def slots_help_callback(callback: types.CallbackQuery):
@@ -1394,14 +1465,15 @@ async def callback_sex_use_item(callback: types.CallbackQuery):
             return
             
         INTIMATE_COOLDOWNS[uid] = time.time()
-        coins, xp = random.randint(80, 200), 40
-        new_coins, new_xp = p.get("coins", 0) + coins, p.get("xp", 0) + xp
+        xp, respect = 40, random.randint(1, 3)
+        new_xp = p.get("xp", 0) + xp
+        new_respect = p.get("respect", 0) + respect
         new_level = p.get("level", 1)
         for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
             if new_xp >= data["xp"]: new_level = lvl
             
         try:
-            await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", p["user_id"]).execute())
+            await asyncio.to_thread(lambda: supabase.table("users").update({"xp": new_xp, "respect": new_respect, "level": new_level}).eq("user_id", p["user_id"]).execute())
         except Exception:
             pass
 
@@ -1417,7 +1489,7 @@ async def callback_sex_use_item(callback: types.CallbackQuery):
         }
 
         desc = descriptions.get(item_key, descriptions["none"])
-        final_text = f"{desc}\n\nНаграда за уединение: +{coins} монет и +{xp} опыта."
+        final_text = f"{desc}\n\nНаграда за уединение: +{xp} опыта и +{respect} респекта."
         
         await callback.message.edit_text(final_text)
         await callback.answer("Близость удалась!", show_alert=True)
@@ -1497,18 +1569,23 @@ async def cmd_inv(message: types.Message, state: FSMContext):
 async def cmd_top(message: types.Message, state: FSMContext):
     await state.clear()
     def _fetch_top():
-        return supabase.table("users").select("username, level, coins").order("level", desc=True).limit(10).execute()
+        return supabase.table("users").select("user_id, username, level, coins").order("level", desc=True).limit(10).execute()
     try:
         res = await asyncio.to_thread(_fetch_top)
     except Exception:
         res = None
     text = "🏆 **ТОП-10 ИГРОКОВ:**\n\n"
+    buttons = []
     if res and res.data:
         for i, u in enumerate(res.data, 1):
             lvl = u.get('level', 1)
             title = LEVELS.get(lvl, {}).get("title", "")
             text += f"{i}. **{u.get('username')}** — Ур. `{lvl}` (*{title}*) | 🪙 `{u.get('coins')}`\n"
-    await message.answer(text, parse_mode=ParseMode.MARKDOWN)
+            buttons.append([InlineKeyboardButton(text=f"👤 Профиль: {u.get('username')}", callback_data=f"view_profile_{u.get('user_id')}")])
+    else:
+        text += "Игроков пока нет."
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    await message.answer(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("work"))
 async def cmd_work(message: types.Message, state: FSMContext):
