@@ -147,7 +147,6 @@ SEX_SHOP = {
     "sex_mask": {"name": "🎭 Кружевная маска", "price": 600, "desc": "Атмосфера тайного греха."},
 }
 
-# 15 реальных машин (цены уменьшены ровно в 10 раз)
 CARS_CAT = {
     "granta": {"name": "🚗 Lada Granta", "price": 50000, "base_speed": 40},
     "vesta": {"name": "🚗 Lada Vesta", "price": 120000, "base_speed": 60},
@@ -164,6 +163,7 @@ CARS_CAT = {
     "488": {"name": "🏎 Ferrari 488 Spider", "price": 3800000, "base_speed": 310},
     "chiron": {"name": "🏎 Bugatti Chiron", "price": 6000000, "base_speed": 360},
     "phantom": {"name": "👑 Rolls-Royce Phantom", "price": 8000000, "base_speed": 340},
+    "m5f90": {"name": "🏎 BMW M5 F90", "price": 0, "base_speed": 340, "admin_only": True},
 }
 
 CAR_COLORS = [
@@ -171,7 +171,6 @@ CAR_COLORS = [
     "💙 Синий", "💛 Желтый", "💚 Зеленый", "💜 Фиолетовый"
 ]
 
-# Недвижимость (цены уменьшены ровно в 10 раз)
 APARTMENTS_CAT = {
     "studio": {"name": "🏢 Студия на окраине", "price": 50000},
     "1k": {"name": "🏢 1-комнатная квартира", "price": 120000},
@@ -200,16 +199,6 @@ def format_age(seconds: int) -> str:
     res.append(f"{minutes} мин.")
     return " ".join(res) if res else "0 мин."
 
-def get_child_age(birth_time: int) -> str:
-    if not birth_time or int(birth_time) == 0:
-        return "0 лет"
-    diff = time.time() - int(birth_time)
-    years = diff / 259200
-    if years < 1:
-        months = int(years * 12)
-        return f"{max(0, months)} мес."
-    return f"{years:.1f} лет"
-
 def is_admin(user: types.User) -> bool:
     if not user or not user.username:
         return False
@@ -225,6 +214,46 @@ async def get_profile_by_id(uid: str):
     except Exception as e:
         logging.error(f"Error fetching profile by id: {e}")
     return None
+
+async def get_profile_by_username(username: str):
+    uname = username.lstrip("@").lower()
+    def _fetch():
+        return supabase.table("users").select("*").ilike("username", uname).execute()
+    try:
+        res = await asyncio.to_thread(_fetch)
+        if res.data:
+            return res.data[0]
+    except Exception as e:
+        logging.error(f"Error fetching profile by username: {e}")
+    return None
+
+async def resolve_target_user(message: types.Message, args: list, identifier_index: int = 1):
+    """
+    Универсальный поиск пользователя:
+    1. Через реплай (ответ на сообщение).
+    2. Через упоминание (@username) или ID в аргументах команды.
+    Возвращает (target_id, target_name) или (None, error_text).
+    """
+    if message.reply_to_message:
+        target = message.reply_to_message.from_user
+        return str(target.id), target.first_name
+    
+    if len(args) > identifier_index:
+        identifier = args[identifier_index].strip()
+        # Если передан ID (только цифры)
+        if identifier.isdigit():
+            p = await get_profile_by_id(identifier)
+            if p:
+                return str(p["user_id"]), p["username"]
+            return identifier, f"ID:{identifier}"
+        # Если передан юзернейм (с @ или без)
+        else:
+            p = await get_profile_by_username(identifier)
+            if p:
+                return str(p["user_id"]), p["username"]
+            return None, f"❌ Пользователь `{identifier}` не найден в базе данных!"
+            
+    return None, "❌ Укажите пользователя через ответ на сообщение, `@username` или `user_id`!"
 
 async def get_profile(user: types.User):
     uid = str(user.id)
@@ -275,48 +304,6 @@ async def get_profile(user: types.User):
         logging.error(f"Supabase insert error: {e}")
     return new_user
 
-async def get_or_create_family(uid1: str, uid2: str):
-    uids = sorted([str(uid1), str(uid2)])
-    fam_id = f"{uids[0]}_{uids[1]}"
-    
-    def _fetch():
-        return supabase.table("families").select("*").eq("family_id", fam_id).execute()
-    
-    try:
-        res = await asyncio.to_thread(_fetch)
-        if res.data:
-            fam_data = res.data[0]
-            if not fam_data.get("child_birth_time") or int(fam_data.get("child_birth_time", 0)) == 0:
-                if fam_data.get("child_name") and fam_data.get("child_name") != "❌ Нет":
-                    supabase.table("families").update({"child_birth_time": int(time.time())}).eq("family_id", fam_id).execute()
-                    fam_data["child_birth_time"] = int(time.time())
-            return fam_data
-    except Exception:
-        pass
-    
-    new_fam = {
-        "family_id": fam_id,
-        "partner1_id": uids[0],
-        "partner2_id": uids[1],
-        "budget": 0,
-        "food": 0,
-        "house": "❌ Нет",
-        "apartment": "❌ Нет",
-        "car": "❌ Нет",
-        "child_name": "❌ Нет",
-        "child_hunger": 100,
-        "child_birth_time": int(time.time())
-    }
-    def _insert():
-        return supabase.table("families").upsert(new_fam).execute()
-    try:
-        ins_res = await asyncio.to_thread(_insert)
-        if ins_res.data:
-            return ins_res.data[0]
-    except Exception:
-        pass
-    return new_fam
-
 def get_main_keyboard(user_id: int):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👤 Профиль", callback_data=f"menu_profile_{user_id}"),
@@ -357,8 +344,6 @@ async def callback_back_home(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer()
     except TelegramBadRequest:
         await callback.answer()
-    except Exception as e:
-        logging.error(f"Error in back_home: {e}")
 
 @dp.callback_query(F.data.startswith("menu_"))
 async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
@@ -396,13 +381,25 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             eq_name = SHOP_EQUIPMENT.get(equipped, {}).get("name", "❌ Ничего не надето")
             music_status = "🎵 Установлена" if p.get("profile_music") else "❌ Нет"
             
+            def _get_car_and_prop():
+                car_res = supabase.table("user_cars").select("*").eq("user_id", str(uid)).eq("is_active", True).execute()
+                active_car = car_res.data[0] if car_res.data else None
+                return active_car
+            active_car = await asyncio.to_thread(_get_car_and_prop)
+            car_info = f"🚗 Машина: **{active_car['car_name']}** ({active_car['color']})" if active_car else "🚗 Машина: ❌ Нет"
+            apt_info = f"🏢 Квартира: `{p.get('personal_apartment', '❌ Нет')}`"
+            house_info = f"🏡 Дом: `{p.get('personal_house', '❌ Нет')}`"
+            
             text = (
                 f"👤 **Профиль: {p.get('username')}**\n"
                 f"⏳ Возраст в боте: `{bot_age}`\n"
                 f"⭐ Уровень: `{lvl}` / 67 (*{title}*)\n"
                 f"✨ Опыт (XP): `{p.get('xp')}`\n"
-                f"🪙 Монеты: `{p.get('coins')}`\n"
+                f"🪙 Монеты: `{p.get('coins'):,}`\n"
                 f"❤️ Респект: `{p.get('respect')}`\n"
+                f"{car_info}\n"
+                f"{apt_info}\n"
+                f"{house_info}\n"
                 f"⚔️ Экипировка: `{eq_name}`\n"
                 f"🎶 Музыка в профиле: `{music_status}`\n"
                 f"{smoke_status}\n"
@@ -431,7 +428,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             arm_items = [i.strip() for i in armory_str.split(",") if i.strip()]
             equipped = p.get("equipped_item", "")
             
-            text = f"⚔️ **ОРУЖЕЙНАЯ ИГРОКА {p.get('username')}** (Баланс: `{p.get('coins', 0)}` 🪙)\n\n"
+            text = f"⚔️ **ОРУЖЕЙНАЯ ИГРОКА {p.get('username')}** (Баланс: `{p.get('coins', 0):,}` 🪙)\n\n"
             eq_info = SHOP_EQUIPMENT.get(equipped)
             if eq_info:
                 text += f"🟢 **Надето:** {eq_info['name']} (*+{eq_info['duel_buff']}% к дуэли*)\n\n"
@@ -466,10 +463,10 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             items = [i.strip() for i in inv_str.split(",") if i.strip()]
             
             if not items:
-                text = f"🎒 **Инвентарь игрока {p.get('username')}** (Баланс: `{p.get('coins', 0)}` 🪙):\n\nВаш инвентарь пуст."
+                text = f"🎒 **Инвентарь игрока {p.get('username')}** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\nВаш инвентарь пуст."
                 kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]])
             else:
-                text = f"🎒 **Инвентарь игрока {p.get('username')}** (Баланс: `{p.get('coins', 0)}` 🪙):\nНажмите на предмет, чтобы использовать его:\n\n"
+                text = f"🎒 **Инвентарь игрока {p.get('username')}** (Баланс: `{p.get('coins', 0):,}` 🪙):\nНажмите на предмет, чтобы использовать его:\n\n"
                 buttons = []
                 for idx, item_key in enumerate(items):
                     item_info = SHOP_CONSUMABLES.get(item_key) or SEX_SHOP.get(item_key) or {"name": item_key}
@@ -488,7 +485,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             cars_res = await asyncio.to_thread(_get_cars)
             user_cars = cars_res.data if cars_res and cars_res.data else []
 
-            text = f"🏎 **ВАШ ГАРАЖ И АВТОМОБИЛИ** (Баланс: `{p.get('coins', 0)}` 🪙):\n\n"
+            text = f"🏎 **ВАШ ГАРАЖ И АВТОМОБИЛИ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
             buttons = []
 
             if not user_cars:
@@ -516,7 +513,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             active_res = await asyncio.to_thread(_get_active)
             active_car = active_res.data[0] if active_res and active_res.data else None
 
-            text = "🏁 **УЛИЧНЫЕ ГОНКИ**\n\n"
+            text = "🏁 **УЛИЧНЫЕ ГОНКИ (PvP между игроками)**\n\n"
             if not active_car:
                 text += "❌ У вас нет активной машины! Выберите машину в гараже."
                 kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -527,10 +524,10 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 text += (
                     f"🏎 Ваша машина: **{active_car['car_name']}** ({active_car['color']})\n"
                     f"⚡ Тюнинг (Двиг {active_car['engine_lvl']} | Турбо {active_car['turbo_lvl']} | Руль {active_car['handling_lvl']})\n\n"
-                    f"Участвуйте в нелегальных заездах, выигрывайте монеты и опыт!"
+                    f"🏆 Гонки проходят против машин других реальных игроков! Ставка: 1,000 🪙."
                 )
                 kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🔥 Начать заезд (Ставка: 1,000 🪙)", callback_data="start_street_race")],
+                    [InlineKeyboardButton(text="🔥 Начать заезд с игроком (1,000 🪙)", callback_data="start_street_race")],
                     [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
                 ])
             try:
@@ -539,9 +536,9 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 await callback.answer()
 
         elif action == "shops":
-            text = f"🛒 **ВЫБЕРИТЕ МАГАЗИН** (Баланс: `{p.get('coins', 0)}` 🪙):"
+            text = f"🛒 **ВЫБЕРИТЕ МАГАЗИН** (Баланс: `{p.get('coins', 0):,}` 🪙):"
             kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🏎 Автосалон (15 машин)", callback_data=f"shop_cars_list_{uid}")],
+                [InlineKeyboardButton(text="🏎 Автосалон (Все модели)", callback_data=f"shop_cars_list_{uid}")],
                 [InlineKeyboardButton(text="⚔️ Снаряжение (в Оружейную)", callback_data=f"shop_eq_list_{uid}")],
                 [InlineKeyboardButton(text="🍺 Продукты и ПК (в инвентарь)", callback_data=f"shop_cons_list_{uid}")],
                 [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
@@ -552,10 +549,10 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 await callback.answer()
 
         elif action == "sexshop":
-            text = f"🍑 **СЕКС-ШОП «БЕЗ ТОРМОЗОВ»** (Баланс: `{p.get('coins', 0)}` 🪙):\n\nПриобретайте игрушки, они попадают в инвентарь:"
+            text = f"🍑 **СЕКС-ШОП «БЕЗ ТОРМОЗОВ»** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\nПриобретайте игрушки, они попадают в инвентарь:"
             buttons = []
             for item_id, data in SEX_SHOP.items():
-                buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']} 🪙", callback_data=f"buy_sex_{item_id}_{uid}")])
+                buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']:,} 🪙", callback_data=f"buy_sex_{item_id}_{uid}")])
             buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")])
             try:
                 await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
@@ -564,7 +561,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
 
         elif action == "personal":
             text = (
-                f"🏠 **ЛИЧНОЕ ИМУЩЕСТВО** (Баланс: `{p.get('coins', 0)}` 🪙)\n\n"
+                f"🏠 **ЛИЧНОЕ ИМУЩЕСТВО** (Баланс: `{p.get('coins', 0):,}` 🪙)\n\n"
                 f"🏢 Квартира: `{p.get('personal_apartment', '❌ Нет')}`\n"
                 f"🏡 Дом: `{p.get('personal_house', '❌ Нет')}`\n\n"
                 f"👇 Выберите категорию для покупки:"
@@ -592,7 +589,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 for i, u in enumerate(res.data, 1):
                     lvl = u.get('level', 1)
                     title = LEVELS.get(lvl, {}).get("title", "")
-                    text += f"{i}. **{u.get('username')}** — Ур. `{lvl}` (*{title}*) | 🪙 `{u.get('coins')}`\n"
+                    text += f"{i}. **{u.get('username')}** — Ур. `{lvl}` (*{title}*) | 🪙 `{u.get('coins'):,}`\n"
                     buttons.append([InlineKeyboardButton(text=f"👤 Профиль: {u.get('username')}", callback_data=f"view_profile_{u.get('user_id')}")])
             else:
                 text += "Игроков пока нет."
@@ -604,7 +601,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 await callback.answer()
             
         elif action == "work":
-            text = f"💼 **БИРЖА ТРУДА** (Баланс: `{p.get('coins', 0)}` 🪙):\n\nВыберите смену:"
+            text = f"💼 **БИРЖА ТРУДА** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\nВыберите смену:"
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="⛏ Шахтёр (40-90 🪙)", callback_data="do_work_1")],
                 [InlineKeyboardButton(text="🛡 Стражник (60-130 🪙)", callback_data="do_work_2")],
@@ -619,7 +616,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             
         elif action == "casino":
             text = (
-                f"🎰 **КАЗИНО И ИГРЫ** (Баланс: `{p.get('coins', 0)}` 🪙):\n\n"
+                f"🎰 **КАЗИНО И ИГРЫ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
                 "Доступные игры в чате:\n"
                 "• `/dice <ставка> <числа 1-6>`\n"
                 "• `/coin <ставка> <орел/решка>`\n"
@@ -691,13 +688,25 @@ async def view_other_profile(callback: types.CallbackQuery):
     eq_name = SHOP_EQUIPMENT.get(equipped, {}).get("name", "❌ Ничего не надето")
     music_status = "🎵 Установлена" if p.get("profile_music") else "❌ Нет"
 
+    def _get_car_and_prop():
+        car_res = supabase.table("user_cars").select("*").eq("user_id", str(target_uid)).eq("is_active", True).execute()
+        active_car = car_res.data[0] if car_res.data else None
+        return active_car
+    active_car = await asyncio.to_thread(_get_car_and_prop)
+    car_info = f"🚗 Машина: **{active_car['car_name']}** ({active_car['color']})" if active_car else "🚗 Машина: ❌ Нет"
+    apt_info = f"🏢 Квартира: `{p.get('personal_apartment', '❌ Нет')}`"
+    house_info = f"🏡 Дом: `{p.get('personal_house', '❌ Нет')}`"
+
     text = (
         f"👤 **Профиль игрока: {p.get('username')}** (Просмотр)\n"
         f"⏳ Возраст в боте: `{bot_age}`\n"
         f"⭐ Уровень: `{lvl}` / 67 (*{title}*)\n"
         f"✨ Опыт (XP): `{p.get('xp')}`\n"
-        f"🪙 Монеты: `{p.get('coins')}`\n"
+        f"🪙 Монеты: `{p.get('coins'):,}`\n"
         f"❤️ Респект: `{p.get('respect')}`\n"
+        f"{car_info}\n"
+        f"{apt_info}\n"
+        f"{house_info}\n"
         f"⚔️ Экипировка: `{eq_name}`\n"
         f"🎶 Музыка в профиле: `{music_status}`\n"
         f"{smoke_status}\n"
@@ -810,7 +819,7 @@ async def delete_profile_music(callback: types.CallbackQuery, state: FSMContext)
     callback.data = f"menu_profile_{uid}"
     await callback_main_menu(callback, state)
 
-# --- АВТОСАЛОН И ПОКУПКА МАШИН ---
+# --- АВТОСАЛОН И ТЮНИНГ ---
 @dp.callback_query(F.data.startswith("shop_cars_list_"))
 async def shop_cars_list(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
@@ -818,11 +827,14 @@ async def shop_cars_list(callback: types.CallbackQuery):
         await callback.answer("❌ Это не ваше меню!", show_alert=True)
         return
     p = await get_profile(callback.from_user)
-    text = f"🏎 **АВТОСАЛОН (15 МОДЕЛЕЙ)** (Баланс: `{p.get('coins', 0):,}` 🪙):\nВыберите машину для покупки:\n\n"
+    text = f"🏎 **АВТОСАЛОН** (Баланс: `{p.get('coins', 0):,}` 🪙):\nВыберите машину для покупки:\n\n"
     buttons = []
     for k, car in CARS_CAT.items():
-        text += f"• **{car['name']}** — `{car['price']:,}` 🪙 (Скорость: {car['base_speed']})\n"
-        buttons.append([InlineKeyboardButton(text=f"Купить: {car['name']} ({car['price']:,} 🪙)", callback_data=f"buy_car_{k}_{uid}")])
+        if car.get("admin_only"):
+            text += f"• **{car['name']}** — 🔒 *Эксклюзив (Только от админа)* (Скорость: {car['base_speed']})\n"
+        else:
+            text += f"• **{car['name']}** — `{car['price']:,}` 🪙 (Скорость: {car['base_speed']})\n"
+            buttons.append([InlineKeyboardButton(text=f"Купить: {car['name']} ({car['price']:,} 🪙)", callback_data=f"buy_car_{k}_{uid}")])
     
     buttons.append([InlineKeyboardButton(text="🔙 В гараж", callback_data=f"menu_garage_{uid}")])
     try:
@@ -841,6 +853,10 @@ async def buy_car_action(callback: types.CallbackQuery):
         return
 
     car_info = CARS_CAT.get(car_key)
+    if not car_info or car_info.get("admin_only"):
+        await callback.answer("❌ Эту машину нельзя купить в автосалоне!", show_alert=True)
+        return
+
     p = await get_profile(callback.from_user)
     if p.get("coins", 0) < car_info["price"]:
         await callback.answer(f"❌ Недостаточно монет! Нужно {car_info['price']:,} 🪙", show_alert=True)
@@ -988,6 +1004,7 @@ async def set_car_color(callback: types.CallbackQuery):
     callback.data = f"car_tune_{car_id}"
     await car_tune_menu(callback)
 
+# --- УЛИЧНЫЕ ГОНКИ МЕЖДУ РЕАЛЬНЫМИ ИГРОКАМИ ---
 @dp.callback_query(F.data == "start_street_race")
 async def start_street_race(callback: types.CallbackQuery):
     uid = str(callback.from_user.id)
@@ -1006,27 +1023,57 @@ async def start_street_race(callback: types.CallbackQuery):
         return supabase.table("user_cars").select("*").eq("user_id", uid).eq("is_active", True).execute()
     res = await asyncio.to_thread(_get_active)
     if not res.data:
-        await callback.answer("❌ У вас нет активной машины!", show_alert=True)
+        await callback.answer("❌ У вас нет активной машины! Выберите машину в гараже.", show_alert=True)
         return
-    car = res.data[0]
+    my_car = res.data[0]
+
+    def _get_opponents():
+        return supabase.table("user_cars").select("*").eq("is_active", True).neq("user_id", uid).execute()
+    opp_res = await asyncio.to_thread(_get_opponents)
+
+    if not opp_res.data:
+        await callback.answer("❌ Сейчас нет других игроков с активными машинами в сети! Пригласите друзей в бота.", show_alert=True)
+        return
+
+    opponent_car = random.choice(opp_res.data)
+
+    def _get_opp_user():
+        return supabase.table("users").select("username").eq("user_id", opponent_car["user_id"]).execute()
+    opp_user_res = await asyncio.to_thread(_get_opp_user)
+    opp_username = opp_user_res.data[0]["username"] if opp_user_res.data else "Игрок"
 
     RACE_COOLDOWNS[uid] = now
-    car_base = CARS_CAT.get(car["car_key"], {}).get("base_speed", 50)
-    power = car_base + (car["engine_lvl"] * 15) + (car["turbo_lvl"] * 25) + (car["handling_lvl"] * 10)
-    
-    opponent_power = random.randint(50, 250)
-    win = power >= opponent_power
+
+    my_base = CARS_CAT.get(my_car["car_key"], {}).get("base_speed", 50)
+    my_power = my_base + (my_car["engine_lvl"] * 15) + (my_car["turbo_lvl"] * 25) + (my_car["handling_lvl"] * 10)
+
+    opp_base = CARS_CAT.get(opponent_car["car_key"], {}).get("base_speed", 50)
+    opp_power = opp_base + (opponent_car["engine_lvl"] * 15) + (opponent_car["turbo_lvl"] * 25) + (opponent_car["handling_lvl"] * 10)
+
+    win = my_power >= opp_power
 
     if win:
         reward = random.randint(2000, 6000)
         xp_gain = 40
         new_coins = p["coins"] - 1000 + reward
         new_xp = p.get("xp", 0) + xp_gain
-        result_text = f"🏁 **ПОБЕДА В ГОНКЕ!** 🎉\nВы обогнали соперника на своем **{car['car_name']}**!\n💰 Выигрыш: `+{reward:,}` 🪙\n✨ Опыт: `+{xp_gain} XP`"
+        result_text = (
+            f"🏁 **ПОБЕДА В ГОНКЕ ПРОТИВ ИГРОКА!** 🎉\n\n"
+            f"🏎 Ваша машина: **{my_car['car_name']}** ({my_car['color']})\n"
+            f"🚗 Соперник (**{opp_username}**): **{opponent_car['car_name']}** ({opponent_car['color']})\n\n"
+            f"💰 Выигрыш: `+{reward:,}` 🪙\n"
+            f"✨ Опыт: `+{xp_gain} XP`"
+        )
     else:
         new_coins = p["coins"] - 1000
         new_xp = p.get("xp", 0) + 10
-        result_text = f"🏁 **ПОРАЖЕНИЕ В ГОНКЕ...** 💨\nСоперник оказался быстрее.\n💸 Ставка сгорела: `-1,000 🪙`\n✨ Опыт утешения: `+10 XP`"
+        result_text = (
+            f"🏁 **ПОРАЖЕНИЕ В ГОНКЕ...** 💨\n\n"
+            f"🏎 Ваша машина: **{my_car['car_name']}** ({my_car['color']})\n"
+            f"🚗 Соперник (**{opp_username}**): **{opponent_car['car_name']}** ({opponent_car['color']})\n\n"
+            f"💸 Ставка сгорела: `-1,000 🪙`\n"
+            f"✨ Опыт утешения: `+10 XP`"
+        )
 
     new_level = p.get("level", 1)
     for lvl, d in sorted(LEVELS.items(), key=lambda x: x[0]):
@@ -1037,7 +1084,7 @@ async def start_street_race(callback: types.CallbackQuery):
     await asyncio.to_thread(_save)
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏁 Еще заезд", callback_data="start_street_race")],
+        [InlineKeyboardButton(text="🏁 Еще гонка с игроком", callback_data="start_street_race")],
         [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
     ])
     try:
@@ -1045,14 +1092,15 @@ async def start_street_race(callback: types.CallbackQuery):
     except TelegramBadRequest:
         await callback.answer()
 
+# --- МАГАЗИНЫ И ИМУЩЕСТВО ---
 @dp.callback_query(F.data.startswith("shop_eq_list_"))
 async def callback_shop_eq(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
     p = await get_profile(callback.from_user)
-    text = f"⚔️ **МАГАЗИН СНАРЯЖЕНИЯ** (Баланс: `{p.get('coins', 0)}` 🪙):\n\n"
+    text = f"⚔️ **МАГАЗИН СНАРЯЖЕНИЯ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
     buttons = []
     for item_id, data in SHOP_EQUIPMENT.items():
-        text += f"🔹 **{data['name']}** ({data['price']} 🪙)\n   └ *{data['desc']}*\n\n"
+        text += f"🔹 **{data['name']}** ({data['price']:,} 🪙)\n   └ *{data['desc']}*\n\n"
         buttons.append([InlineKeyboardButton(text=f"Купить: {data['name']}", callback_data=f"buy_eq_{item_id}_{uid}")])
     buttons.append([InlineKeyboardButton(text="🔙 К магазинам", callback_data=f"menu_shops_{uid}")])
     try:
@@ -1065,10 +1113,10 @@ async def callback_shop_eq(callback: types.CallbackQuery):
 async def callback_shop_cons(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
     p = await get_profile(callback.from_user)
-    text = f"🍺 **ПРОДУКТЫ И ТЕХНИКА** (Баланс: `{p.get('coins', 0)}` 🪙):\n\n"
+    text = f"🍺 **ПРОДУКТЫ И ТЕХНИКА** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
     buttons = []
     for item_id, data in SHOP_CONSUMABLES.items():
-        text += f"🔹 **{data['name']}** ({data['price']} 🪙)\n   └ *{data['desc']}*\n\n"
+        text += f"🔹 **{data['name']}** ({data['price']:,} 🪙)\n   └ *{data['desc']}*\n\n"
         buttons.append([InlineKeyboardButton(text=f"Купить: {data['name']}", callback_data=f"buy_cons_{item_id}_{uid}")])
     buttons.append([InlineKeyboardButton(text="🔙 К магазинам", callback_data=f"menu_shops_{uid}")])
     try:
@@ -1134,7 +1182,7 @@ async def buy_sex_item(callback: types.CallbackQuery, state: FSMContext):
     p = await get_profile(callback.from_user)
     
     if p.get("coins", 0) < item["price"]:
-        await callback.answer(f"❌ Недостаточно монет! Нужно {item['price']} 🪙", show_alert=True)
+        await callback.answer(f"❌ Недостаточно монет! Нужно {item['price']:,} 🪙", show_alert=True)
         return
         
     new_coins = p["coins"] - item["price"]
@@ -1205,6 +1253,7 @@ async def pers_buy_item(callback: types.CallbackQuery, state: FSMContext):
     callback.data = f"menu_personal_{uid}"
     await callback_main_menu(callback, state)
 
+# --- БИРЖА ТРУДА И КАЗИНО ---
 @dp.message(Command("work"))
 async def cmd_work(message: types.Message, state: FSMContext):
     await state.clear()
@@ -1216,7 +1265,7 @@ async def cmd_work(message: types.Message, state: FSMContext):
         await message.answer(f"⏳ Отдохните еще `{int(60 - (now - WORK_COOLDOWNS.get(uid, 0)))}` сек.", parse_mode=ParseMode.MARKDOWN)
         return
     if len(args) < 2 or args[1] not in JOBS:
-        text = f"💼 **БИРЖА ТРУДА** (Баланс: `{p.get('coins', 0)}` 🪙):\n"
+        text = f"💼 **БИРЖА ТРУДА** (Баланс: `{p.get('coins', 0):,}` 🪙):\n"
         for j_id, j_data in JOBS.items():
             text += f"🔹 [{j_id}] {j_data['name']} (🪙 {j_data['min_coins']}–{j_data['max_coins']})\n"
         text += "👉 Используйте `/work <номер>`"
@@ -1234,24 +1283,84 @@ async def cmd_work(message: types.Message, state: FSMContext):
     await asyncio.to_thread(_upd)
     await message.answer(f"✅ Вы отработали как **{job['name']}**!\n🪙 `+{earned_coins}` монет\n✨ `+{earned_xp} XP`", parse_mode=ParseMode.MARKDOWN)
 
+@dp.callback_query(F.data.startswith("slots_help_"))
+async def slots_help_callback(callback: types.CallbackQuery):
+    uid = callback.data.split("_")[2]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+    text = (
+        "🎰 **Комбинации и коэффициенты слотов:**\n\n"
+        "• 7️⃣ 7️⃣ 7️⃣ (Три семерки) — x10 от ставки!\n"
+        "• 🍋 🍋 (Два одинаковых подряд) — x2 от ставки!\n"
+        "• 🍇 🍇 🍇 (Три одинаковых фрукта) — x3 от ставки!\n"
+        "• 🎰 🎰 (Два бара) — x5 от ставки!\n"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад в казино", callback_data=f"menu_casino_{uid}")]
+    ])
+    try:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+    except TelegramBadRequest:
+        await callback.answer()
+    await callback.answer()
+
+@dp.callback_query(F.data.startswith("do_work_"))
+async def do_work_callback(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    job_id = parts[2]
+    uid = str(callback.from_user.id)
+    
+    p = await get_profile(callback.from_user)
+    now = time.time()
+    if now - WORK_COOLDOWNS.get(uid, 0) < 60:
+        rem = int(60 - (now - WORK_COOLDOWNS.get(uid, 0)))
+        await callback.answer(f"⏳ Отдохните еще {rem} сек.", show_alert=True)
+        return
+        
+    job = JOBS.get(job_id)
+    if not job:
+        await callback.answer("❌ Профессия не найдена!", show_alert=True)
+        return
+        
+    earned_coins, earned_xp = random.randint(job["min_coins"], job["max_coins"]), job["xp"]
+    WORK_COOLDOWNS[uid] = now
+    new_coins = p.get("coins", 0) + earned_coins
+    new_xp = p.get("xp", 0) + earned_xp
+    new_level = p.get("level", 1)
+    for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
+        if new_xp >= data["xp"]:
+            new_level = lvl
+            
+    def _upd():
+        supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute()
+    await asyncio.to_thread(_upd)
+    
+    await callback.answer(f"✅ Вы отработали как {job['name']} (+{earned_coins} 🪙, +{earned_xp} XP)", show_alert=True)
+    
+    text = f"💼 **БИРЖА ТРУДА** (Баланс: `{new_coins:,}` 🪙):\n\n✅ Последняя смена ({job['name']}): `+{earned_coins} 🪙`, `+{earned_xp} XP`\n\nВыберите смену:"
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="⛏ Шахтёр (40-90 🪙)", callback_data="do_work_1")],
+        [InlineKeyboardButton(text="🛡 Стражник (60-130 🪙)", callback_data="do_work_2")],
+        [InlineKeyboardButton(text="🧪 Алхимик (90-180 🪙)", callback_data="do_work_3")],
+        [InlineKeyboardButton(text="🐉 Охотник (130-260 🪙)", callback_data="do_work_4")],
+        [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
+    ])
+    try:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+    except TelegramBadRequest:
+        pass
+
 @dp.message(Command("dice"))
 async def cmd_dice(message: types.Message, state: FSMContext):
     await state.clear()
     args = message.text.split()
     if len(args) < 3:
-        await message.answer(
-            "❌ Использование: `/dice <ставка> <числа от 1 до 6>`\n"
-            "Пример: `/dice 100 2 5 6`", 
-            parse_mode=ParseMode.MARKDOWN
-        )
+        await message.answer("❌ Использование: `/dice <ставка> <числа от 1 до 6>`", parse_mode=ParseMode.MARKDOWN)
         return
     try:
         bet = int(args[1])
-        chosen = []
-        for x in args[2:]:
-            num = int(x)
-            if 1 <= num <= 6 and num not in chosen:
-                chosen.append(num)
+        chosen = [int(x) for x in args[2:] if 1 <= int(x) <= 6]
         if bet <= 0 or not (1 <= len(chosen) <= 3):
             raise ValueError()
     except ValueError:
@@ -1268,8 +1377,7 @@ async def cmd_dice(message: types.Message, state: FSMContext):
     await asyncio.sleep(3)
     
     coins = p["coins"] - bet
-    count = len(chosen)
-    mult = {1: 6.0, 2: 3.0, 3: 2.0}[count]
+    mult = {1: 6.0, 2: 3.0, 3: 2.0}[len(chosen)]
     
     if roll in chosen:
         win = int(bet * mult)
@@ -1278,12 +1386,12 @@ async def cmd_dice(message: types.Message, state: FSMContext):
         def _upd():
             supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
         await asyncio.to_thread(_upd)
-        await message.answer(f"🎲 Выпало **{roll}**! Вы выиграли `+{profit}` монет (x{mult})! 💰 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
+        await message.answer(f"🎲 Выпало **{roll}**! Вы выиграли `+{profit:,}` монет! 🎉 (Баланс: `{coins:,}`)", parse_mode=ParseMode.MARKDOWN)
     else:
         def _upd():
             supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
         await asyncio.to_thread(_upd)
-        await message.answer(f"🎲 Выпало **{roll}**. Проигрыш `{bet}` монет. 💸 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
+        await message.answer(f"🎲 Выпало **{roll}**. Проигрыш `{bet:,}` монет. 💸 (Баланс: `{coins:,}`)", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("coin"))
 async def cmd_coin(message: types.Message, state: FSMContext):
@@ -1294,9 +1402,8 @@ async def cmd_coin(message: types.Message, state: FSMContext):
         return
     try:
         bet = int(args[1])
-        choice_input = args[2].lower()
+        user_choice = "орел" if args[2].lower() in ["орел", "о", "head"] else "решка"
         if bet <= 0: raise ValueError()
-        user_choice = "орел" if choice_input in ["орел", "о", "head", "heads"] else "решка"
     except ValueError:
         await message.answer("❌ Неверная ставка!", parse_mode=ParseMode.MARKDOWN)
         return
@@ -1316,12 +1423,12 @@ async def cmd_coin(message: types.Message, state: FSMContext):
         def _upd():
             supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
         await asyncio.to_thread(_upd)
-        await message.answer(f"🪙 Выпал **{result}**! Вы выиграли `+{profit}` монет! 🎉 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
+        await message.answer(f"🪙 Выпал **{result}**! Вы выиграли `+{profit:,}` монет! 🎉 (Баланс: `{coins:,}`)", parse_mode=ParseMode.MARKDOWN)
     else:
         def _upd():
             supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
         await asyncio.to_thread(_upd)
-        await message.answer(f"🪙 Выпал **{result}**. Проигрыш `{bet}` монет. 💸 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
+        await message.answer(f"🪙 Выпал **{result}**. Проигрыш `{bet:,}` монет. 💸 (Баланс: `{coins:,}`)", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("slots"))
 async def cmd_slots(message: types.Message, state: FSMContext):
@@ -1351,29 +1458,23 @@ async def cmd_slots(message: types.Message, state: FSMContext):
     r1, r2, r3 = v % 4, (v // 4) % 4, (v // 16) % 4
     
     multiplier = 0
-    if r1 == 3 and r2 == 3 and r3 == 3:
-        multiplier = 10
-    elif r1 == 3 and r2 == 3:
-        multiplier = 5
-    elif r1 == r2 == r3:
-        multiplier = 3
-    elif r1 == r2:
-        multiplier = 2
-    else:
-        multiplier = 0
+    if r1 == 3 and r2 == 3 and r3 == 3: multiplier = 10
+    elif r1 == 3 and r2 == 3: multiplier = 5
+    elif r1 == r2 == r3: multiplier = 3
+    elif r1 == r2: multiplier = 2
 
     if multiplier > 0:
         win = bet * multiplier
         coins += win
-        res_text = f"Выигрыш x{multiplier}! (+{win} 🪙)"
+        res_text = f"🎰 Выигрыш x{multiplier}! (`+{win:,}` 🪙)"
     else:
-        res_text = f"Проигрыш (-{bet} 🪙)"
+        res_text = f"🎰 Проигрыш (`-{bet:,}` 🪙)"
         
     def _upd():
         supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
     await asyncio.to_thread(_upd)
     
-    await message.answer(f"{res_text}\n💰 Баланс: `{coins}` 🪙", parse_mode=ParseMode.MARKDOWN)
+    await message.answer(f"{res_text}\n💰 Баланс: `{coins:,}` 🪙", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("duel"))
 async def cmd_duel(message: types.Message, state: FSMContext):
@@ -1394,156 +1495,169 @@ async def cmd_duel(message: types.Message, state: FSMContext):
     winner = random.choices([user1, user2], weights=[score1, score2], k=1)[0]
     await message.answer(f"⚔️ **ДУЭЛЬ!**\n\n🏆 Победитель: **{winner.first_name}**! 🎉", parse_mode=ParseMode.MARKDOWN)
 
-@dp.message(Command("sex"))
-async def cmd_sex_text(message: types.Message, state: FSMContext):
-    await state.clear()
-    await show_sex_selection(message, message.from_user)
-
-async def show_sex_selection(message_obj, user_obj):
-    p = await get_profile(user_obj)
-    pid, pname = p.get("partner_id"), p.get("partner_name")
-    
-    if not pid or str(pid) == "0" or not pname or pname == "EMPTY":
-        if isinstance(message_obj, types.CallbackQuery):
-            await message_obj.answer("🛏️ Эта команда доступна только тем, кто состоит в браке!", show_alert=True)
-        else:
-            await message_obj.answer("🛏️ Эта команда доступна только тем, кто состоит в браке!")
+# --- АДМИН-МЕНЮ И УНИВЕРСАЛЬНЫЕ АДМИН-КОМАНДЫ ---
+@dp.message(Command("admin"))
+async def cmd_admin_menu(message: types.Message):
+    if not is_admin(message.from_user):
+        await message.answer("❌ У вас нет прав администратора для просмотра этого меню!")
         return
-
-    uid = str(user_obj.id)
-    now = time.time()
-    if now - INTIMATE_COOLDOWNS.get(uid, 0) < 600:
-        rem = int(600 - (now - INTIMATE_COOLDOWNS.get(uid, 0)))
-        text_cd = f"⏳ Вы слишком устали. Отдохните еще {rem // 60} мин."
-        if isinstance(message_obj, types.CallbackQuery):
-            await message_obj.answer(text_cd, show_alert=True)
-        else:
-            await message_obj.answer(text_cd)
-        return
-
-    inv_str = p.get("inventory") or ""
-    items = [i.strip() for i in inv_str.split(",") if i.strip() and i.strip().startswith("sex_")]
     
-    buttons = []
-    for i_key in items:
-        i_name = SEX_SHOP.get(i_key, {}).get("name", i_key)
-        buttons.append([InlineKeyboardButton(text=f"Использовать: {i_name}", callback_data=f"sex_use_{i_key}")])
-    
-    buttons.append([InlineKeyboardButton(text="Без игрушек", callback_data="sex_use_none")])
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    
-    text = f"🍑 Выберите предмет для уединения с партнером {pname}:"
-    if isinstance(message_obj, types.CallbackQuery):
-        await message_obj.edit_text(text, reply_markup=kb)
-    else:
-        await message_obj.answer(text, reply_markup=kb)
-
-@dp.callback_query(F.data.startswith("sex_use_"))
-async def callback_sex_use_item(callback: types.CallbackQuery):
-    try:
-        item_key = callback.data.replace("sex_use_", "")
-        user_obj = callback.from_user
-        uid = str(user_obj.id)
-        
-        p = await get_profile(user_obj)
-        pid, pname = p.get("partner_id"), p.get("partner_name")
-        
-        if not pid or str(pid) == "0":
-            await callback.answer("❌ Вы не в браке!", show_alert=True)
-            return
-            
-        INTIMATE_COOLDOWNS[uid] = time.time()
-        xp, respect = 40, random.randint(1, 3)
-        new_xp = p.get("xp", 0) + xp
-        new_respect = p.get("respect", 0) + respect
-        new_level = p.get("level", 1)
-        for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
-            if new_xp >= data["xp"]: new_level = lvl
-            
-        def _upd():
-            supabase.table("users").update({"xp": new_xp, "respect": new_respect, "level": new_level}).eq("user_id", p["user_id"]).execute()
-        await asyncio.to_thread(_upd)
-
-        desc = f"Воздух в комнате мгновенно раскаляется от жажды близости когда {user_obj.first_name} прижимает к себе {pname} и страстно впивается в губы. Тела сливаются в единое целое в диком и безудержном ритме под громкие стоны."
-        final_text = f"{desc}\n\nНаграда за уединение: +{xp} опыта и +{respect} респекта."
-        
-        await callback.message.edit_text(final_text)
-        await callback.answer("Близость удалась!", show_alert=True)
-    except Exception as e:
-        logging.error(f"Error in sex action: {e}")
-        await callback.answer("❌ Произошла ошибка!", show_alert=True)
-
-@dp.message(Command("me"))
-async def cmd_me(message: types.Message, state: FSMContext):
-    await state.clear()
-    p = await get_profile(message.from_user)
-    lvl = p.get('level', 1)
-    title = LEVELS.get(lvl, {}).get("title", "Воин")
-    pid, pname = p.get("partner_id"), p.get("partner_name")
-    
-    created_at = int(p.get("created_at") or time.time())
-    bot_age = format_age(int(time.time()) - created_at)
-    
-    if pid and str(pid) != "0" and pname != "EMPTY":
-        m_time = int(p.get("marriage_time") or time.time())
-        md = format_age(int(time.time()) - m_time)
-        marriage = f"💍 В браке с: **{pname}** (уже {md})"
-    else:
-        marriage = "💍 Статус: Свободен"
-
     text = (
-        f"👤 **Профиль: {p.get('username')}**\n"
-        f"⏳ Возраст в боте: `{bot_age}`\n"
-        f"⭐ Уровень: `{lvl}` / 67 (*{title}*)\n"
-        f"✨ Опыт (XP): `{p.get('xp')}`\n"
-        f"🪙 Монеты: `{p.get('coins')}`\n"
-        f"❤️ Респект: `{p.get('respect')}`\n"
-        f"{marriage}"
+        "🛠 **ПАНЕЛЬ УПРАВЛЕНИЯ АДМИНИСТРАТОРА**\n\n"
+        "Все админ-команды поддерживают два способа вызова:\n"
+        "• **Реплаем** (ответом на сообщение игрока)\n"
+        "• **Через аргументы** (`@username` или `user_id`)\n\n"
+        "📋 **Список команд:**\n"
+        "1. `/give <сумма>` (или `/give @user <сумма>`) — выдать монеты.\n"
+        "2. `/setcoins <сумма>` (или `/setcoins @user <сумма>`) — точный баланс.\n"
+        "3. `/givecar <ключ>` (или `/givecar @user <ключ>`) — выдать авто (например, `m5f90`).\n"
+        "4. `/admin` — открыть это меню.\n\n"
+        "⚠️ Соблюдайте осторожность."
     )
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏎 Гараж", callback_data=f"menu_garage_{message.from_user.id}"),
-         InlineKeyboardButton(text="🏁 Гонки", callback_data=f"menu_race_{message.from_user.id}")]
-    ])
-    await message.answer(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+    await message.answer(text, parse_mode=ParseMode.MARKDOWN)
 
-@dp.message(F.text == "+")
-async def give_respect(message: types.Message):
-    if not message.reply_to_message: return
-    target = message.reply_to_message.from_user
-    if target.id == message.from_user.id: return
-    p = await get_profile(target)
-    new_respect = p.get("respect", 0) + 1
+@dp.message(Command("give"))
+async def admin_give(message: types.Message):
+    if not is_admin(message.from_user):
+        await message.answer("❌ У вас нет прав администратора!")
+        return
+    
+    args = message.text.split()
+    # Если реплаем: /give 50000 -> args[1] = сумма
+    # Если текстом: /give @user 50000 -> args[1] = юзер, args[2] = сумма
+    if message.reply_to_message:
+        if len(args) < 2:
+            await message.answer("❌ Укажите сумму: `/give <сумма>`", parse_mode=ParseMode.MARKDOWN)
+            return
+        target_id, target_name = str(message.reply_to_message.from_user.id), message.reply_to_message.from_user.first_name
+        try:
+            amount = int(args[1])
+        except ValueError:
+            await message.answer("❌ Неверная сумма!")
+            return
+    else:
+        if len(args) < 3:
+            await message.answer("❌ Использование: `/give <сумма>` (реплаем) или `/give <@user/id> <сумма>`", parse_mode=ParseMode.MARKDOWN)
+            return
+        target_id, target_name = await resolve_target_user(message, args, identifier_index=1)
+        if not target_id:
+            await message.answer(target_name, parse_mode=ParseMode.MARKDOWN)
+            return
+        try:
+            amount = int(args[2])
+        except ValueError:
+            await message.answer("❌ Неверная сумма!")
+            return
+
+    p = await get_profile_by_id(target_id)
+    if not p:
+        # Создадим профиль если его не было
+        p = await get_profile(types.User(id=int(target_id), is_bot=False, first_name=target_name))
+        
+    new_coins = p.get("coins", 0) + amount
     def _upd():
-        supabase.table("users").update({"respect": new_respect}).eq("user_id", str(target.id)).execute()
+        supabase.table("users").update({"coins": new_coins}).eq("user_id", str(target_id)).execute()
     await asyncio.to_thread(_upd)
-    await message.answer(f"👍 Респект **{target.first_name}** повышен! (`{new_respect}`)", parse_mode=ParseMode.MARKDOWN)
+    await message.answer(f"✅ Игроку **{target_name}** начислено `+{amount:,}` 🪙 (Баланс: `{new_coins:,}` 🪙)", parse_mode=ParseMode.MARKDOWN)
 
-async def handle_ping(request):
-    return web.Response(text="Бот работает!")
+@dp.message(Command("setcoins"))
+async def admin_setcoins(message: types.Message):
+    if not is_admin(message.from_user):
+        await message.answer("❌ У вас нет прав администратора!")
+        return
+    
+    args = message.text.split()
+    if message.reply_to_message:
+        if len(args) < 2:
+            await message.answer("❌ Укажите сумму: `/setcoins <сумма>`", parse_mode=ParseMode.MARKDOWN)
+            return
+        target_id, target_name = str(message.reply_to_message.from_user.id), message.reply_to_message.from_user.first_name
+        try:
+            amount = int(args[1])
+        except ValueError:
+            await message.answer("❌ Неверная сумма!")
+            return
+    else:
+        if len(args) < 3:
+            await message.answer("❌ Использование: `/setcoins <сумма>` (реплаем) или `/setcoins <@user/id> <сумма>`", parse_mode=ParseMode.MARKDOWN)
+            return
+        target_id, target_name = await resolve_target_user(message, args, identifier_index=1)
+        if not target_id:
+            await message.answer(target_name, parse_mode=ParseMode.MARKDOWN)
+            return
+        try:
+            amount = int(args[2])
+        except ValueError:
+            await message.answer("❌ Неверная сумма!")
+            return
 
-async def web_server():
-    app = web.Application()
-    app.router.add_get("/", handle_ping)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, "0.0.0.0", int(os.environ.get("PORT", 10000)))
-    await site.start()
+    def _upd():
+        supabase.table("users").update({"coins": amount}).eq("user_id", str(target_id)).execute()
+    await asyncio.to_thread(_upd)
+    await message.answer(f"✅ Баланс игрока **{target_name}** установлен на `{amount:,}` 🪙", parse_mode=ParseMode.MARKDOWN)
 
+@dp.message(Command("givecar"))
+async def admin_give_car(message: types.Message):
+    if not is_admin(message.from_user):
+        await message.answer("❌ У вас нет прав администратора!")
+        return
+    
+    args = message.text.split()
+    available_keys = ", ".join(CARS_CAT.keys())
+
+    if message.reply_to_message:
+        if len(args) < 2:
+            await message.answer(f"❌ Укажите ключ машины:\nДоступно: `{available_keys}`", parse_mode=ParseMode.MARKDOWN)
+            return
+        target_id, target_name = str(message.reply_to_message.from_user.id), message.reply_to_message.from_user.first_name
+        car_key = args[1].lower()
+    else:
+        if len(args) < 3:
+            await message.answer(
+                "❌ Использование: `/givecar <ключ>` (реплаем) или `/givecar <@user/id> <ключ>`\n"
+                f"Доступные ключи: `{available_keys}`", 
+                parse_mode=ParseMode.MARKDOWN
+            )
+            return
+        target_id, target_name = await resolve_target_user(message, args, identifier_index=1)
+        if not target_id:
+            await message.answer(target_name, parse_mode=ParseMode.MARKDOWN)
+            return
+        car_key = args[2].lower()
+
+    car_info = CARS_CAT.get(car_key)
+    if not car_info:
+        await message.answer(f"❌ Машина с ключом `{car_key}` не найдена!\nДоступные ключи: `{available_keys}`", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    def _check_user_cars():
+        return supabase.table("user_cars").select("*").eq("user_id", str(target_id)).execute()
+    existing = await asyncio.to_thread(_check_user_cars)
+    is_first = not existing.data
+
+    def _insert_car():
+        supabase.table("user_cars").insert({
+            "user_id": str(target_id),
+            "car_key": car_key,
+            "car_name": car_info["name"],
+            "color": "🖤 Черный",
+            "engine_lvl": 1,
+            "turbo_lvl": 1,
+            "handling_lvl": 1,
+            "is_active": is_first
+        }).execute()
+    
+    try:
+        await asyncio.to_thread(_insert_car)
+        await message.answer(f"✅ Игроку **{target_name}** успешно выдана машина: **{car_info['name']}**!", parse_mode=ParseMode.MARKDOWN)
+    except Exception as e:
+        logging.error(f"Error giving car: {e}")
+        await message.answer("❌ Ошибка при выдаче машины в базу данных.")
+
+# --- ЗАПУСК БОТА ---
 async def main():
-    await bot.set_my_commands([
-        BotCommand(command="start", description="Главное меню с кнопками"),
-        BotCommand(command="me", description="Профиль игрока"),
-        BotCommand(command="shop", description="Магазины"),
-        BotCommand(command="top", description="Топ игроков"),
-        BotCommand(command="race", description="Уличные гонки"),
-        BotCommand(command="work", description="Биржа труда"),
-        BotCommand(command="sex", description="Уединение с парой"),
-        BotCommand(command="dice", description="Игра в кости"),
-        BotCommand(command="coin", description="Орел и решка"),
-        BotCommand(command="slots", description="Слоты"),
-        BotCommand(command="duel", description="Дуэль"),
-    ])
-    asyncio.create_task(web_server())
+    await bot.delete_webhook(drop_pending_updates=True)
+    logging.info("Бот запущен...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
