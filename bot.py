@@ -8,10 +8,12 @@ from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
 from aiogram.types import BotCommand, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.fsm.state import State, StatesGroup
+from aiogram.fsm.context import FSMContext
 from supabase import create_client, Client
 
 # --- НАСТРОЙКИ (КЛЮЧИ И ТОКЕНЫ) ---
-BOT_TOKEN = "8844907899:AAH6TPW93SufV2pRi0Ng9AHuEmqOEmqfLnI"
+BOT_TOKEN = "8844907899:AAHWYb30wS3F4vnnzWdB8MrH_50TTqnBRpE"
 SUPABASE_URL = "https://cbypocbgeevwqhjahchy.supabase.co"
 SUPABASE_KEY = "sb_publishable_zcF4S765sEmvXLIQegRkFg_1el4gZn_".strip()
 
@@ -22,6 +24,10 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Состояния для ввода имени ребенка
+class FamilyState(StatesGroup):
+    waiting_for_child_name = State()
 
 # --- 67 УРОВНЕЙ, ОПЫТ И ТИТУЛЫ ---
 LEVELS = {
@@ -121,7 +127,6 @@ SHOP_CONSUMABLES = {
     "cigars": {"name": "🚬 Сигареты", "price": 100, "desc": "Добавляет авторитета (+5 респекта)."},
 }
 
-# Справочники для семейных покупок
 APARTMENTS_CAT = {
     "apt_studio": {"name": "🏢 Студия на окраине", "price": 1200},
     "apt_1k": {"name": "🏢 1-комнатная квартира", "price": 2500},
@@ -208,17 +213,37 @@ def get_main_keyboard():
     ])
 
 @dp.message(Command(commands=["start", "help", "menu"]))
-async def cmd_start(message: types.Message):
+async def cmd_start(message: types.Message, state: FSMContext):
+    await state.clear()
     await get_profile(message.from_user)
     text = (
         "🎮 **ДОБРО ПОЖАЛОВАТЬ В RPG БОТ!**\n\n"
         "Используйте кнопки ниже для управления персонажем, покупки товаров и участия в развлечениях."
     )
-    await message.answer(text, reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
+    # Если вызов был через команду /start или инлайн-кнопку возврата, отправляем новое сообщение или редактируем
+    if message.text and message.text.startswith("/start"):
+        await message.answer(text, reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
+    else:
+        try:
+            await message.edit_text(text, reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
+        except Exception:
+            await message.answer(text, reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
+
+@dp.callback_query(F.data == "back_home")
+async def callback_back_home(callback: types.CallbackQuery, state: FSMContext):
+    try:
+        await state.clear()
+        text = "🎮 **ГЛАВНОЕ МЕНЮ:**"
+        await callback.message.edit_text(text, reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
+        await callback.answer()
+    except Exception as e:
+        logging.error(f"Error in back_home: {e}")
+        await callback.answer("❌ Ошибка!", show_alert=True)
 
 @dp.callback_query(F.data.startswith("menu_"))
-async def callback_main_menu(callback: types.CallbackQuery):
+async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
     try:
+        await state.clear()
         action = callback.data.split("_")[1]
         p = await get_profile(callback.from_user)
         
@@ -312,7 +337,7 @@ async def callback_main_menu(callback: types.CallbackQuery):
                 kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🏡 Меню семьи", callback_data="family_main"),
                      InlineKeyboardButton(text="🔥 Уединиться (/sex)", callback_data="action_sex")],
-                    [InlineKeyboardButton(text="💔 Развестись (/divorce)", callback_data="action_divorce"),
+                    [InlineKeyboardButton(text="💔 Развестись (/divorce", callback_data="action_divorce"),
                      InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
                 ])
             else:
@@ -329,8 +354,9 @@ async def callback_main_menu(callback: types.CallbackQuery):
 
 # --- РАСШИРЕННОЕ МЕНЮ СЕМЬИ ---
 @dp.callback_query(F.data == "family_main")
-async def callback_family_main(callback: types.CallbackQuery):
+async def callback_family_main(callback: types.CallbackQuery, state: FSMContext):
     try:
+        await state.clear()
         p = await get_profile(callback.from_user)
         pid = p.get("partner_id")
         if not pid or str(pid) == "0":
@@ -367,7 +393,6 @@ async def callback_family_main(callback: types.CallbackQuery):
         logging.error(f"Error in family_main: {e}")
         await callback.answer("❌ Ошибка при открытии меню семьи!", show_alert=True)
 
-# Магазин квартир
 @dp.callback_query(F.data == "fam_shop_apt")
 async def fam_shop_apt(callback: types.CallbackQuery):
     buttons = []
@@ -376,7 +401,6 @@ async def fam_shop_apt(callback: types.CallbackQuery):
     buttons.append([InlineKeyboardButton(text="🔙 Назад в семью", callback_data="family_main")])
     await callback.message.edit_text("🏢 **РЫНОК КВАРТИР:**\nВыберите вариант для покупки:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
 
-# Магазин домов
 @dp.callback_query(F.data == "fam_shop_house")
 async def fam_shop_house(callback: types.CallbackQuery):
     buttons = []
@@ -385,7 +409,6 @@ async def fam_shop_house(callback: types.CallbackQuery):
     buttons.append([InlineKeyboardButton(text="🔙 Назад в семью", callback_data="family_main")])
     await callback.message.edit_text("🏡 **РЫНОК ДОМОВ И ВИЛЛ:**\nВыберите загородную недвижимость:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
 
-# Магазин машин
 @dp.callback_query(F.data == "fam_shop_car")
 async def fam_shop_car(callback: types.CallbackQuery):
     buttons = []
@@ -398,7 +421,7 @@ async def fam_shop_car(callback: types.CallbackQuery):
 async def fam_buy_specific_item(callback: types.CallbackQuery):
     try:
         parts = callback.data.replace("fam_buy_item_", "").split("_", 1)
-        category = parts[0] # apt, house, car
+        category = parts[0]
         item_key = f"{parts[0]}_{parts[1]}"
         
         p = await get_profile(callback.from_user)
@@ -425,13 +448,13 @@ async def fam_buy_specific_item(callback: types.CallbackQuery):
         }).eq("family_id", fam_id).execute())
         
         await callback.answer(f"🎉 Успешно приобретено: {item_data['name']}!", show_alert=True)
-        await callback_family_main(callback)
+        await callback_family_main(callback, FSMContext)
     except Exception as e:
         logging.error(f"Error buying item: {e}")
         await callback.answer("❌ Ошибка при покупке!", show_alert=True)
 
 @dp.callback_query(F.data.startswith("fam_"))
-async def callback_family_actions(callback: types.CallbackQuery):
+async def callback_family_actions(callback: types.CallbackQuery, state: FSMContext):
     try:
         action = callback.data.split("_")[1]
         p = await get_profile(callback.from_user)
@@ -471,14 +494,16 @@ async def callback_family_actions(callback: types.CallbackQuery):
             if fam["budget"] < 1000:
                 await callback.answer("❌ Нужно 1000 🪙 в семейном бюджете на расходы по рождению!", show_alert=True)
                 return
-            child_names = ["Тони", "Алиса", "Максим", "София", "Артем", "Милана"]
-            c_name = random.choice(child_names)
-            await asyncio.to_thread(lambda: supabase.table("families").update({
-                "budget": fam["budget"] - 1000,
-                "child_name": c_name,
-                "child_hunger": 100
-            }).eq("family_id", fam_id).execute())
-            await callback.answer(f"👶 У вас родился замечательный ребенок: {c_name}!", show_alert=True)
+            
+            # Переходим в состояние ввода имени ребенка
+            await state.set_state(FamilyState.waiting_for_child_name)
+            await state.update_data(fam_id=fam_id, cost=1000, current_budget=fam["budget"])
+            await callback.message.edit_text(
+                "👶 **РОЖДЕНИЕ РЕБЕНКА**\n\nНапишите в чат желаемое **имя** для вашего ребенка следующим сообщением:",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await callback.answer()
+            return
                 
         elif action == "feed":
             if fam["child_name"] == "❌ Нет":
@@ -500,10 +525,33 @@ async def callback_family_actions(callback: types.CallbackQuery):
                 return
             await callback.answer(f"🧸 Вы поиграли с ребенком {fam['child_name']}. Он очень доволен!", show_alert=True)
             
-        await callback_family_main(callback)
+        await callback_family_main(callback, state)
     except Exception as e:
         logging.error(f"Error in family actions: {e}")
         await callback.answer("❌ Ошибка!", show_alert=True)
+
+# Обработка введенного имени ребенка в чате
+@dp.message(FamilyState.waiting_for_child_name)
+async def process_child_name(message: types.Message, state: FSMContext):
+    child_name = message.text.strip()
+    if not child_name or len(child_name) > 20:
+        await message.answer("❌ Имя слишком длинное или пустое. Введите корректное имя для ребенка:")
+        return
+        
+    data = await state.get_data()
+    fam_id = data.get("fam_id")
+    cost = data.get("cost")
+    current_budget = data.get("current_budget")
+    
+    new_budget = current_budget - cost
+    await asyncio.to_thread(lambda: supabase.table("families").update({
+        "budget": new_budget,
+        "child_name": child_name,
+        "child_hunger": 100
+    }).eq("family_id", fam_id).execute())
+    
+    await state.clear()
+    await message.answer(f"🎉 Поздравляем! У вас родился ребенок по имени **{child_name}**! 👶🍼", parse_mode=ParseMode.MARKDOWN)
 
 @dp.callback_query(F.data == "shop_eq_list")
 async def callback_shop_eq(callback: types.CallbackQuery):
@@ -721,6 +769,7 @@ async def callback_do_work(callback: types.CallbackQuery):
         logging.error(f"Error in do_work: {e}")
         await callback.answer("❌ Ошибка при работе!", show_alert=True)
 
+# СТРАСТНОЕ СООБЩЕНИЕ О СЕКСЕ
 @dp.callback_query(F.data == "action_sex")
 async def callback_action_sex(callback: types.CallbackQuery):
     try:
@@ -747,10 +796,11 @@ async def callback_action_sex(callback: types.CallbackQuery):
             
         await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
         
+        # Страстное описание без слова "Внимание"
         announcement = (
-            f"🔥 **ВНИМАНИЕ ВСЕМ!** 🔥\n"
-            f"В этом чате только что произошел страстный половой акт между **{callback.from_user.first_name}** и **{pname}**! 🛲💦\n"
-            f"🪙 Оба участника получили порцию страсти (+{coins} монет, +{xp} XP)!"
+            f"🌙 Мягкий свет увядающего дня растворяется в тишине... Дыхание учащается, касания становятся всё более жаркими и нетерпеливыми.\n\n"
+            f"В этот момент **{callback.from_user.first_name}** и **{pname}** полностью растворяются друг в друге, сливаясь в страстном и чувственном объятии под шёлковыми простынями... 💋🔥\n\n"
+            f"✨ Ночь дарит обоим не только близость, но и прилив сил: +{coins} 🪙 и +{xp} XP."
         )
         await callback.message.answer(announcement, parse_mode=ParseMode.MARKDOWN)
         await callback.answer("✅ Успешно!", show_alert=False)
@@ -775,7 +825,8 @@ async def callback_action_divorce(callback: types.CallbackQuery):
 
 # --- ТЕКСТОВЫЕ КОМАНДЫ ---
 @dp.message(Command("me"))
-async def cmd_me(message: types.Message):
+async def cmd_me(message: types.Message, state: FSMContext):
+    await state.clear()
     p = await get_profile(message.from_user)
     lvl = p.get('level', 1)
     title = LEVELS.get(lvl, {}).get("title", "Воин")
@@ -797,7 +848,8 @@ async def cmd_me(message: types.Message):
     await message.answer(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("shop"))
-async def cmd_shop(message: types.Message):
+async def cmd_shop(message: types.Message, state: FSMContext):
+    await state.clear()
     text = "🛒 **МАГАЗИНЫ БОТА:**"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="⚔️ Снаряжение", callback_data="shop_eq_list"),
@@ -806,7 +858,8 @@ async def cmd_shop(message: types.Message):
     await message.answer(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("inv"))
-async def cmd_inv(message: types.Message):
+async def cmd_inv(message: types.Message, state: FSMContext):
+    await state.clear()
     p = await get_profile(message.from_user)
     inv_str = p.get("inventory") or ""
     items = [i.strip() for i in inv_str.split(",") if i.strip()]
@@ -822,7 +875,8 @@ async def cmd_inv(message: types.Message):
         await message.answer(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("top"))
-async def cmd_top(message: types.Message):
+async def cmd_top(message: types.Message, state: FSMContext):
+    await state.clear()
     def _fetch_top():
         return supabase.table("users").select("username, level, coins").order("level", desc=True).limit(10).execute()
     res = await asyncio.to_thread(_fetch_top)
@@ -835,7 +889,8 @@ async def cmd_top(message: types.Message):
     await message.answer(text, parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("work"))
-async def cmd_work(message: types.Message):
+async def cmd_work(message: types.Message, state: FSMContext):
+    await state.clear()
     args = message.text.split()
     uid = str(message.from_user.id)
     p = await get_profile(message.from_user)
@@ -861,7 +916,8 @@ async def cmd_work(message: types.Message):
     await message.answer(f"✅ Вы отработали как **{job['name']}**!\n🪙 `+{earned_coins}` монет\n✨ `+{earned_xp} XP`", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("pay"))
-async def cmd_pay(message: types.Message):
+async def cmd_pay(message: types.Message, state: FSMContext):
+    await state.clear()
     args = message.text.split()
     if len(args) < 2 or not message.reply_to_message:
         await message.answer("Ответьте на сообщение командой `/pay <сумма>`", parse_mode=ParseMode.MARKDOWN)
@@ -892,9 +948,9 @@ async def give_respect(message: types.Message):
     await asyncio.to_thread(lambda: supabase.table("users").update({"respect": new_respect}).eq("user_id", str(target.id)).execute())
     await message.answer(f"👍 Респект **{target.first_name}** повышен! (`{new_respect}`)", parse_mode=ParseMode.MARKDOWN)
 
-# --- НАТИВНЫЕ АНИМАЦИИ ДАЙСА И СЛОТОВ ---
 @dp.message(Command("dice"))
-async def cmd_dice(message: types.Message):
+async def cmd_dice(message: types.Message, state: FSMContext):
+    await state.clear()
     args = message.text.split()
     if len(args) < 3:
         await message.answer("Использование: `/dice <ставка> <числа 1-6>`\nПример: `/dice 100 3 4 5`", parse_mode=ParseMode.MARKDOWN)
@@ -930,7 +986,8 @@ async def cmd_dice(message: types.Message):
         await message.answer(f"🎲 Выпало **{roll}**. Проигрыш `{bet}` монет. 💸 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("slots"))
-async def cmd_slots(message: types.Message):
+async def cmd_slots(message: types.Message, state: FSMContext):
+    await state.clear()
     args = message.text.split()
     if len(args) < 2:
         await message.answer("Использование: `/slots <ставка>`", parse_mode=ParseMode.MARKDOWN)
@@ -971,12 +1028,14 @@ async def cmd_slots(message: types.Message):
     await message.answer(f"{res_text}\n💰 Баланс: `{coins}`", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("ball"))
-async def cmd_ball(message: types.Message):
+async def cmd_ball(message: types.Message, state: FSMContext):
+    await state.clear()
     answers = ["Да", "Нет", "Скорее всего да", "Точно нет", "Спроси позже", "Определенно да"]
     await message.answer(f"🎱 Шар говорит: *{random.choice(answers)}*", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("duel"))
-async def cmd_duel(message: types.Message):
+async def cmd_duel(message: types.Message, state: FSMContext):
+    await state.clear()
     if not message.reply_to_message:
         await message.answer("Ответьте на сообщение противника командой `/duel`", parse_mode=ParseMode.MARKDOWN)
         return
@@ -984,7 +1043,8 @@ async def cmd_duel(message: types.Message):
     await message.answer(f"⚔️ Победитель дуэли: **{winner.first_name}**!", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("kiss"))
-async def cmd_kiss(message: types.Message):
+async def cmd_kiss(message: types.Message, state: FSMContext):
+    await state.clear()
     if not message.reply_to_message:
         await message.answer("Ответьте на сообщение пользователя командой `/kiss`", parse_mode=ParseMode.MARKDOWN)
         return
@@ -993,7 +1053,8 @@ async def cmd_kiss(message: types.Message):
     await message.answer(f"💋 **{message.from_user.first_name}** целует **{target.first_name}**! 💕", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("marry"))
-async def cmd_marry(message: types.Message):
+async def cmd_marry(message: types.Message, state: FSMContext):
+    await state.clear()
     if not message.reply_to_message:
         await message.answer("💍 Ответьте на сообщение пользователя командой `/marry`.", parse_mode=ParseMode.MARKDOWN)
         return
@@ -1015,8 +1076,9 @@ async def cmd_marry(message: types.Message):
     await message.answer(f"💍 **{message.from_user.first_name}** делает предложение **{target_user.first_name}**!", reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
 
 @dp.callback_query(F.data.startswith("marry_"))
-async def callback_marry(callback: types.CallbackQuery):
+async def callback_marry(callback: types.CallbackQuery, state: FSMContext):
     try:
+        await state.clear()
         data_parts = callback.data.split("_")
         action, proposer_id = data_parts[1], int(data_parts[2])
         accepter = callback.from_user
@@ -1042,7 +1104,8 @@ async def callback_marry(callback: types.CallbackQuery):
         await callback.answer("❌ Ошибка при заключении брака!", show_alert=True)
 
 @dp.message(Command("partner"))
-async def cmd_partner(message: types.Message):
+async def cmd_partner(message: types.Message, state: FSMContext):
+    await state.clear()
     p = await get_profile(message.from_user)
     pid, pname = p.get("partner_id"), p.get("partner_name")
     if not pid or str(pid) == "0" or not pname or pname == "EMPTY":
@@ -1051,7 +1114,8 @@ async def cmd_partner(message: types.Message):
         await message.answer(f"💍 Вторая половинка: **{pname}** ❤️", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("divorce"))
-async def cmd_divorce(message: types.Message):
+async def cmd_divorce(message: types.Message, state: FSMContext):
+    await state.clear()
     p = await get_profile(message.from_user)
     pid = p.get("partner_id")
     if not pid or str(pid) == "0":
@@ -1062,7 +1126,8 @@ async def cmd_divorce(message: types.Message):
     await message.answer("💔 Развод оформлен.", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("sex"))
-async def cmd_sex(message: types.Message):
+async def cmd_sex(message: types.Message, state: FSMContext):
+    await state.clear()
     uid = str(message.from_user.id)
     p = await get_profile(message.from_user)
     pid, pname = p.get("partner_id"), p.get("partner_name")
@@ -1083,9 +1148,9 @@ async def cmd_sex(message: types.Message):
     await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
     
     announcement = (
-        f"🔥 **ВНИМАНИЕ ВСЕМ!** 🔥\n"
-        f"В этом чате только что произошел страстный половой акт между **{message.from_user.first_name}** и **{pname}**! 🛏️💦\n"
-        f"🪙 Оба участника получили порцию страсти (+{coins} монет, +{xp} XP)!"
+        f"🌙 Мягкий свет увядающего дня растворяется в тишине... Дыхание учащается, касания становятся всё более жаркими и нетерпеливыми.\n\n"
+        f"В этот момент **{message.from_user.first_name}** и **{pname}** полностью растворяются друг в друге, сливаясь в страстном и чувственном объятии под шёлковыми простынями... 💋🔥\n\n"
+        f"✨ Ночь дарит обоим не только близость, но и прилив сил: +{coins} 🪙 и +{xp} XP."
     )
     await message.answer(announcement, parse_mode=ParseMode.MARKDOWN)
 
@@ -1100,7 +1165,8 @@ async def verify_admin(message: types.Message) -> bool:
     return True
 
 @dp.message(Command("add_coins"))
-async def admin_add_coins(message: types.Message):
+async def admin_add_coins(message: types.Message, state: FSMContext):
+    await state.clear()
     if not await verify_admin(message): return
     amount = int(message.text.split()[1])
     target = await get_profile(message.reply_to_message.from_user)
@@ -1108,7 +1174,8 @@ async def admin_add_coins(message: types.Message):
     await message.answer(f"🛡 Добавлено `{amount}` монет.", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("set_coins"))
-async def admin_set_coins(message: types.Message):
+async def admin_set_coins(message: types.Message, state: FSMContext):
+    await state.clear()
     if not await verify_admin(message): return
     amount = int(message.text.split()[1])
     target = await get_profile(message.reply_to_message.from_user)
@@ -1116,7 +1183,8 @@ async def admin_set_coins(message: types.Message):
     await message.answer(f"🛡 Баланс установлен на `{amount}`.", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("add_xp"))
-async def admin_add_xp(message: types.Message):
+async def admin_add_xp(message: types.Message, state: FSMContext):
+    await state.clear()
     if not await verify_admin(message): return
     amount = int(message.text.split()[1])
     target = await get_profile(message.reply_to_message.from_user)
@@ -1128,7 +1196,8 @@ async def admin_add_xp(message: types.Message):
     await message.answer(f"🛡 Добавлено `+{amount} XP`.", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("set_level"))
-async def admin_set_level(message: types.Message):
+async def admin_set_level(message: types.Message, state: FSMContext):
+    await state.clear()
     if not await verify_admin(message): return
     lvl = int(message.text.split()[1])
     target = await get_profile(message.reply_to_message.from_user)
@@ -1137,8 +1206,13 @@ async def admin_set_level(message: types.Message):
     await message.answer(f"🛡 Уровень изменен на `{lvl}`.", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(F.text)
-async def process_message_xp(message: types.Message):
+async def process_message_xp(message: types.Message, state: FSMContext):
     if message.text.startswith("/"): return
+    # Если бот ожидает ввод имени ребенка, пропускаем начисление обычного опыта
+    current_state = await state.get_state()
+    if current_state == FamilyState.waiting_for_child_name.state:
+        return
+        
     uid = str(message.from_user.id)
     p = await get_profile(message.from_user)
     new_xp = p.get("xp", 0) + 5
