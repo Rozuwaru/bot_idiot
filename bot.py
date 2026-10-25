@@ -104,7 +104,6 @@ JOBS = {
     "4": {"name": "🐉 Охотник на чудовищ", "min_coins": 130, "max_coins": 260, "xp": 30},
 }
 
-# Магазин снаряжения (дает статы сразу)
 SHOP_EQUIPMENT = {
     "eq_1": {"name": "🪵 Деревянный меч", "price": 150, "effect_type": "xp", "value": 30, "desc": "Дает +30 XP."},
     "eq_2": {"name": "⚔️ Железный меч", "price": 350, "effect_type": "xp", "value": 90, "desc": "Дает +90 XP."},
@@ -113,7 +112,6 @@ SHOP_EQUIPMENT = {
     "eq_5": {"name": "💍 Руническое кольцо", "price": 600, "effect_type": "respect", "value": 6, "desc": "Дает +6 респекта."},
 }
 
-# Магазин расходников (идут в инвентарь и применяются по кнопке)
 SHOP_CONSUMABLES = {
     "beer_okhota": {"name": "🍺 Охота Крепкое", "price": 120, "desc": "Легендарное пиво. Мут на 2 мин + рандом монет."},
     "energy": {"name": "⚡ Энергетик", "price": 90, "desc": "Дает +50 XP при открытии."},
@@ -170,321 +168,357 @@ async def cmd_start(message: types.Message):
 
 @dp.callback_query(F.data.startswith("menu_"))
 async def callback_main_menu(callback: types.CallbackQuery):
-    action = callback.data.split("_")[1]
-    p = await get_profile(callback.from_user)
-    
-    if action == "profile":
-        lvl = p.get('level', 1)
-        title = LEVELS.get(lvl, {}).get("title", "Воин")
-        pid, pname = p.get("partner_id"), p.get("partner_name")
-        marriage = f"💍 В браке с: **{pname}**" if pid and str(pid) != "0" and pname != "EMPTY" else "💍 Статус: Свободен"
+    try:
+        action = callback.data.split("_")[1]
+        p = await get_profile(callback.from_user)
         
-        text = (
-            f"👤 **Профиль: {p.get('username')}**\n"
-            f"⭐ Уровень: `{lvl}` / 67 (*{title}*)\n"
-            f"✨ Опыт (XP): `{p.get('xp')}`\n"
-            f"🪙 Монеты: `{p.get('coins')}`\n"
-            f"❤️ Респект: `{p.get('respect')}`\n"
-            f"{marriage}"
-        )
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔄 Обновить", callback_data="menu_profile"),
-             InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
-        ])
+        if action == "profile":
+            lvl = p.get('level', 1)
+            title = LEVELS.get(lvl, {}).get("title", "Воин")
+            pid, pname = p.get("partner_id"), p.get("partner_name")
+            marriage = f"💍 В браке с: **{pname}**" if pid and str(pid) != "0" and pname != "EMPTY" else "💍 Статус: Свободен"
+            
+            text = (
+                f"👤 **Профиль: {p.get('username')}**\n"
+                f"⭐ Уровень: `{lvl}` / 67 (*{title}*)\n"
+                f"✨ Опыт (XP): `{p.get('xp')}`\n"
+                f"🪙 Монеты: `{p.get('coins')}`\n"
+                f"❤️ Респект: `{p.get('respect')}`\n"
+                f"{marriage}"
+            )
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔄 Обновить", callback_data="menu_profile"),
+                 InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
+            ])
+            await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+            
+        elif action == "inv":
+            inv_str = p.get("inventory", "")
+            items = [i.strip() for i in inv_str.split(",") if i.strip()]
+            
+            if not items:
+                text = f"🎒 **Инвентарь игрока {p.get('username')}:**\n\nВаш инвентарь пуст."
+                kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]])
+            else:
+                text = f"🎒 **Инвентарь игрока {p.get('username')}:**\nНажмите на предмет, чтобы применить его эффект:\n\n"
+                buttons = []
+                for idx, item_key in enumerate(items):
+                    item_info = SHOP_CONSUMABLES.get(item_key, {"name": item_key})
+                    buttons.append([InlineKeyboardButton(text=f"🎁 Использовать: {item_info['name']}", callback_data=f"use_item_{idx}_{item_key}")])
+                buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")])
+                kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+                
+            await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+            
+        elif action == "shops":
+            text = "🛒 **ВЫБЕРИТЕ МАГАЗИН:**"
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="⚔️ Снаряжение (авто-эффект)", callback_data="shop_eq_list")],
+                [InlineKeyboardButton(text="🍺 Продукты и ПК (в инвентарь)", callback_data="shop_cons_list")],
+                [InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
+            ])
+            await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+            
+        elif action == "top":
+            def _fetch_top():
+                return supabase.table("users").select("username, level, coins").order("level", desc=True).limit(10).execute()
+            res = await asyncio.to_thread(_fetch_top)
+            text = "🏆 **ТОП-10 ИГРОКОВ:**\n\n"
+            if res.data:
+                for i, u in enumerate(res.data, 1):
+                    lvl = u.get('level', 1)
+                    title = LEVELS.get(lvl, {}).get("title", "")
+                    text += f"{i}. **{u.get('username')}** — Ур. `{lvl}` (*{title}*) | 🪙 `{u.get('coins')}`\n"
+            else:
+                text += "Игроков пока нет."
+            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]])
+            await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+            
+        elif action == "work":
+            text = "💼 **БИРЖА ТРУДА:**\n\nВыберите смену:"
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="⛏ Шахтёр (40-90 🪙)", callback_data="do_work_1")],
+                [InlineKeyboardButton(text="🛡 Стражник (60-130 🪙)", callback_data="do_work_2")],
+                [InlineKeyboardButton(text="🧪 Алхимик (90-180 🪙)", callback_data="do_work_3")],
+                [InlineKeyboardButton(text="🐉 Охотник (130-260 🪙)", callback_data="do_work_4")],
+                [InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
+            ])
+            await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+            
+        elif action == "casino":
+            text = "🎰 **КАЗИНО И ИГРЫ:**\n\nИспользуйте команды в чате:\n• `/casino <ставка>`\n• `/slots <ставка>`\n• `/dice <ставка> <числа>`"
+            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]])
+            await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+            
+        elif action == "marry":
+            pid, pname = p.get("partner_id"), p.get("partner_name")
+            status = f"💍 В браке с: **{pname}**" if pid and str(pid) != "0" and pname != "EMPTY" else "💍 Вы свободны. Сделайте предложение через реплай и `/marry`"
+            text = f"💍 **ОТНОШЕНИЯ И СЕМЬЯ:**\n\n{status}"
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔥 Уединиться (/sex)", callback_data="action_sex")],
+                [InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
+            ])
+            await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+            
+        await callback.answer()
+    except Exception as e:
+        logging.error(f"Error in callback_main_menu: {e}")
+        await callback.answer("❌ Произошла ошибка!", show_alert=True)
+
+@dp.callback_query(F.data == "back_home")
+async def callback_back_home(callback: types.CallbackQuery):
+    try:
+        text = "🎮 **ГЛАВНОЕ МЕНЮ:**"
+        await callback.message.edit_text(text, reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
+        await callback.answer()
+    except Exception as e:
+        logging.error(f"Error in back_home: {e}")
+        await callback.answer("❌ Ошибка!", show_alert=True)
+
+@dp.callback_query(F.data == "shop_eq_list")
+async def callback_shop_eq(callback: types.CallbackQuery):
+    try:
+        text = "⚔️ **СНАРЯЖЕНИЕ (эффект сразу):**\n\n"
+        buttons = []
+        for item_id, data in SHOP_EQUIPMENT.items():
+            buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']} 🪙", callback_data=f"buy_eq_{item_id}")])
+        buttons.append([InlineKeyboardButton(text="🔙 К магазинам", callback_data="menu_shops")])
+        kb = InlineKeyboardMarkup(inline_keyboard=buttons)
         await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+        await callback.answer()
+    except Exception as e:
+        logging.error(f"Error in shop_eq_list: {e}")
+        await callback.answer("❌ Ошибка!", show_alert=True)
+
+@dp.callback_query(F.data == "shop_cons_list")
+async def callback_shop_cons(callback: types.CallbackQuery):
+    try:
+        text = "🍺 **ПРОДУКТЫ И ТЕХНИКА (в инвентарь):**\n\n"
+        buttons = []
+        for item_id, data in SHOP_CONSUMABLES.items():
+            buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']} 🪙", callback_data=f"buy_cons_{item_id}")])
+        buttons.append([InlineKeyboardButton(text="🔙 К магазинам", callback_data="menu_shops")])
+        kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+        await callback.answer()
+    except Exception as e:
+        logging.error(f"Error in shop_cons_list: {e}")
+        await callback.answer("❌ Ошибка!", show_alert=True)
+
+@dp.callback_query(F.data.startswith("buy_eq_"))
+async def callback_buy_eq(callback: types.CallbackQuery):
+    try:
+        item_id = callback.data.split("_")[2]
+        item = SHOP_EQUIPMENT[item_id]
+        p = await get_profile(callback.from_user)
         
-    elif action == "inv":
+        if p.get("coins", 0) < item["price"]:
+            await callback.answer("❌ Недостаточно монет!", show_alert=True)
+            return
+            
+        new_coins = p["coins"] - item["price"]
+        new_xp, new_respect = p.get("xp", 0), p.get("respect", 0)
+        if item["effect_type"] == "xp": new_xp += item["value"]
+        elif item["effect_type"] == "respect": new_respect += item["value"]
+        
+        new_level = p.get("level", 1)
+        for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
+            if new_xp >= data["xp"]: new_level = lvl
+            
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "respect": new_respect, "level": new_level}).eq("user_id", p["user_id"]).execute())
+        await callback.answer(f"✅ Куплено: {item['name']}!", show_alert=True)
+    except Exception as e:
+        logging.error(f"Error in buy_eq: {e}")
+        await callback.answer("❌ Ошибка при покупке!", show_alert=True)
+
+@dp.callback_query(F.data.startswith("buy_cons_"))
+async def callback_buy_cons(callback: types.CallbackQuery):
+    try:
+        item_id = callback.data.split("_")[2]
+        item = SHOP_CONSUMABLES[item_id]
+        p = await get_profile(callback.from_user)
+        
+        if p.get("coins", 0) < item["price"]:
+            await callback.answer("❌ Недостаточно монет!", show_alert=True)
+            return
+            
+        new_coins = p["coins"] - item["price"]
+        current_inv = p.get("inventory", "")
+        updated_inv = f"{current_inv},{item_id}" if current_inv else item_id
+        
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "inventory": updated_inv}).eq("user_id", p["user_id"]).execute())
+        await callback.answer(f"✅ {item['name']} добавлен в инвентарь!", show_alert=True)
+    except Exception as e:
+        logging.error(f"Error in buy_cons: {e}")
+        await callback.answer("❌ Ошибка! Убедитесь, что в Supabase создана колонка inventory.", show_alert=True)
+
+@dp.callback_query(F.data.startswith("use_item_"))
+async def callback_use_item(callback: types.CallbackQuery):
+    try:
+        parts = callback.data.split("_")
+        item_idx = int(parts[2])
+        item_key = parts[3]
+        
+        p = await get_profile(callback.from_user)
         inv_str = p.get("inventory", "")
         items = [i.strip() for i in inv_str.split(",") if i.strip()]
         
-        if not items:
-            text = f"🎒 **Инвентарь игрока {p.get('username')}:**\n\nВаш инвентарь пуст."
+        if item_idx >= len(items) or items[item_idx] != item_key:
+            await callback.answer("❌ Предмет уже использован или не найден!", show_alert=True)
+            return
+            
+        items.pop(item_idx)
+        new_inv_str = ",".join(items)
+        
+        uid = p["user_id"]
+        coins = p.get("coins", 0)
+        xp = p.get("xp", 0)
+        respect = p.get("respect", 0)
+        
+        effect_message = ""
+        
+        if item_key == "beer_okhota":
+            effect_message = "🍺 Вы выпили «Охота Крепкое»! Расслабон."
+            try:
+                if callback.message.chat.type in ["group", "supergroup"]:
+                    await bot.restrict_chat_member(
+                        chat_id=callback.message.chat.id,
+                        user_id=callback.from_user.id,
+                        permissions=types.ChatPermissions(can_send_messages=False),
+                        until_date=int(time.time()) + 120
+                    )
+                    effect_message += " 🔇 (Мут в чате на 2 минуты!)"
+            except Exception:
+                pass
+            coins += random.randint(20, 80)
+            
+        elif item_key == "energy":
+            effect_message = "⚡ Вы выпили энергетик! Прилив сил: +50 XP."
+            xp += 50
+            
+        elif item_key == "pizza":
+            effect_message = "🍔 Вы съели пиццу! +30 XP и +20 монет."
+            xp += 30
+            coins += 20
+            
+        elif item_key == "vodka":
+            effect_message = "🥃 Вы хлопнули паленой водки!"
+            try:
+                if callback.message.chat.type in ["group", "supergroup"]:
+                    await bot.restrict_chat_member(
+                        chat_id=callback.message.chat.id,
+                        user_id=callback.from_user.id,
+                        permissions=types.ChatPermissions(can_send_messages=False),
+                        until_date=int(time.time()) + 300
+                    )
+                    effect_message += " 🔇 (Лютющий мут на 5 минут!)"
+            except Exception:
+                pass
+            if random.random() > 0.5:
+                change = random.randint(50, 150)
+                coins += change
+                effect_message += f" Удача! Нашли еще +{change} 🪙."
+            else:
+                loss = min(coins, 100)
+                coins -= loss
+                effect_message += f" Жесть... Потеряли {loss} 🪙 на похмелье."
+                
+        elif item_key == "pc":
+            effect_message = "💻 Игровой ПК установлен! +150 респекта."
+            respect += 150
+            
+        elif item_key == "cigars":
+            effect_message = "🚬 Сигарета выкурена. Авторитет вырос: +5 респекта."
+            respect += 5
+            
+        new_level = p.get("level", 1)
+        for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
+            if xp >= data["xp"]: new_level = lvl
+
+        await asyncio.to_thread(lambda: supabase.table("users").update({
+            "coins": coins, "xp": xp, "respect": respect, "level": new_level, "inventory": new_inv_str
+        }).eq("user_id", uid).execute())
+        
+        await callback.answer(effect_message, show_alert=True)
+        
+        p_updated = await get_profile(callback.from_user)
+        items_up = [i.strip() for i in p_updated.get("inventory", "").split(",") if i.strip()]
+        if not items_up:
+            text = f"🎒 **Инвентарь игрока {p.get('username')}:**\n\nИнвентарь пуст."
             kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]])
         else:
-            text = f"🎒 **Инвентарь игрока {p.get('username')}:**\nНажмите на предмет, чтобы применить его эффект:\n\n"
+            text = f"🎒 **Инвентарь игрока {p.get('username')}:**\n\n"
             buttons = []
-            for idx, item_key in enumerate(items):
-                item_info = SHOP_CONSUMABLES.get(item_key, {"name": item_key})
-                buttons.append([InlineKeyboardButton(text=f"🎁 Использовать: {item_info['name']}", callback_data=f"use_item_{idx}_{item_key}")])
+            for idx, i_key in enumerate(items_up):
+                i_info = SHOP_CONSUMABLES.get(i_key, {"name": i_key})
+                buttons.append([InlineKeyboardButton(text=f"🎁 Использовать: {i_info['name']}", callback_data=f"use_item_{idx}_{i_key}")])
             buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")])
             kb = InlineKeyboardMarkup(inline_keyboard=buttons)
             
         await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-        
-    elif action == "shops":
-        text = "🛒 **ВЫБЕРИТЕ МАГАЗИН:**"
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⚔️ Снаряжение (авто-эффект)", callback_data="shop_eq_list")],
-            [InlineKeyboardButton(text="🍺 Продукты и ПК (в инвентарь)", callback_data="shop_cons_list")],
-            [InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
-        ])
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-        
-    elif action == "top":
-        def _fetch_top():
-            return supabase.table("users").select("username, level, coins").order("level", desc=True).limit(10).execute()
-        res = await asyncio.to_thread(_fetch_top)
-        text = "🏆 **ТОП-10 ИГРОКОВ:**\n\n"
-        if res.data:
-            for i, u in enumerate(res.data, 1):
-                lvl = u.get('level', 1)
-                title = LEVELS.get(lvl, {}).get("title", "")
-                text += f"{i}. **{u.get('username')}** — Ур. `{lvl}` (*{title}*) | 🪙 `{u.get('coins')}`\n"
-        else:
-            text += "Игроков пока нет."
-        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]])
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-        
-    elif action == "work":
-        text = "💼 **БИРЖА ТРУДА:**\n\nВыберите смену:"
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="⛏ Шахтёр (40-90 🪙)", callback_data="do_work_1")],
-            [InlineKeyboardButton(text="🛡 Стражник (60-130 🪙)", callback_data="do_work_2")],
-            [InlineKeyboardButton(text="🧪 Алхимик (90-180 🪙)", callback_data="do_work_3")],
-            [InlineKeyboardButton(text="🐉 Охотник (130-260 🪙)", callback_data="do_work_4")],
-            [InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
-        ])
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-        
-    elif action == "casino":
-        text = "🎰 **КАЗИНО И ИГРЫ:**\n\nИспользуйте команды в чате:\n• `/casino <ставка>`\n• `/slots <ставка>`\n• `/dice <ставка> <числа>`"
-        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]])
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-        
-    elif action == "marry":
-        pid, pname = p.get("partner_id"), p.get("partner_name")
-        status = f"💍 В браке с: **{pname}**" if pid and str(pid) != "0" and pname != "EMPTY" else "💍 Вы свободны. Сделайте предложение через реплай и `/marry`"
-        text = f"💍 **ОТНОШЕНИЯ И СЕМЬЯ:**\n\n{status}"
-        kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🔥 Уединиться (/sex)", callback_data="action_sex")],
-            [InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]
-        ])
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-        
-    await callback.answer()
-
-@dp.callback_query(F.data == "back_home")
-async def callback_back_home(callback: types.CallbackQuery):
-    text = "🎮 **ГЛАВНОЕ МЕНЮ:**"
-    await callback.message.edit_text(text, reply_markup=get_main_keyboard(), parse_mode=ParseMode.MARKDOWN)
-    await callback.answer()
-
-@dp.callback_query(F.data == "shop_eq_list")
-async def callback_shop_eq(callback: types.CallbackQuery):
-    text = "⚔️ **СНАРЯЖЕНИЕ (эффект сразу):**\n\n"
-    buttons = []
-    for item_id, data in SHOP_EQUIPMENT.items():
-        buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']} 🪙", callback_data=f"buy_eq_{item_id}")])
-    buttons.append([InlineKeyboardButton(text="🔙 К магазинам", callback_data="menu_shops")])
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-    await callback.answer()
-
-@dp.callback_query(F.data == "shop_cons_list")
-async def callback_shop_cons(callback: types.CallbackQuery):
-    text = "🍺 **ПРОДУКТЫ И ТЕХНИКА (в инвентарь):**\n\n"
-    buttons = []
-    for item_id, data in SHOP_CONSUMABLES.items():
-        buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']} 🪙", callback_data=f"buy_cons_{item_id}")])
-    buttons.append([InlineKeyboardButton(text="🔙 К магазинам", callback_data="menu_shops")])
-    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-    await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-    await callback.answer()
-
-@dp.callback_query(F.data.startswith("buy_eq_"))
-async def callback_buy_eq(callback: types.CallbackQuery):
-    item_id = callback.data.split("_")[2]
-    item = SHOP_EQUIPMENT[item_id]
-    p = await get_profile(callback.from_user)
-    
-    if p.get("coins", 0) < item["price"]:
-        await callback.answer("❌ Недостаточно монет!", show_alert=True)
-        return
-        
-    new_coins = p["coins"] - item["price"]
-    new_xp, new_respect = p.get("xp", 0), p.get("respect", 0)
-    if item["effect_type"] == "xp": new_xp += item["value"]
-    elif item["effect_type"] == "respect": new_respect += item["value"]
-    
-    new_level = p.get("level", 1)
-    for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
-        if new_xp >= data["xp"]: new_level = lvl
-        
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "respect": new_respect, "level": new_level}).eq("user_id", p["user_id"]).execute())
-    await callback.answer(f"✅ Куплено: {item['name']}!", show_alert=True)
-
-@dp.callback_query(F.data.startswith("buy_cons_"))
-async def callback_buy_cons(callback: types.CallbackQuery):
-    item_id = callback.data.split("_")[2]
-    item = SHOP_CONSUMABLES[item_id]
-    p = await get_profile(callback.from_user)
-    
-    if p.get("coins", 0) < item["price"]:
-        await callback.answer("❌ Недостаточно монет!", show_alert=True)
-        return
-        
-    new_coins = p["coins"] - item["price"]
-    current_inv = p.get("inventory", "")
-    updated_inv = f"{current_inv},{item_id}" if current_inv else item_id
-    
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "inventory": updated_inv}).eq("user_id", p["user_id"]).execute())
-    await callback.answer(f"✅ {item['name']} добавлен в инвентарь!", show_alert=True)
-
-@dp.callback_query(F.data.startswith("use_item_"))
-async def callback_use_item(callback: types.CallbackQuery):
-    parts = callback.data.split("_")
-    item_idx = int(parts[2])
-    item_key = parts[3]
-    
-    p = await get_profile(callback.from_user)
-    inv_str = p.get("inventory", "")
-    items = [i.strip() for i in inv_str.split(",") if i.strip()]
-    
-    if item_idx >= len(items) or items[item_idx] != item_key:
-        await callback.answer("❌ Предмет уже использован или не найден!", show_alert=True)
-        return
-        
-    items.pop(item_idx)
-    new_inv_str = ",".join(items)
-    
-    uid = p["user_id"]
-    coins = p.get("coins", 0)
-    xp = p.get("xp", 0)
-    respect = p.get("respect", 0)
-    
-    effect_message = ""
-    
-    if item_key == "beer_okhota":
-        effect_message = "🍺 Вы выпили «Охота Крепкое»! Расслабон."
-        try:
-            if callback.message.chat.type in ["group", "supergroup"]:
-                await bot.restrict_chat_member(
-                    chat_id=callback.message.chat.id,
-                    user_id=callback.from_user.id,
-                    permissions=types.ChatPermissions(can_send_messages=False),
-                    until_date=int(time.time()) + 120
-                )
-                effect_message += " 🔇 (Мут в чате на 2 минуты!)"
-        except Exception:
-            pass
-        coins += random.randint(20, 80)
-        
-    elif item_key == "energy":
-        effect_message = "⚡ Вы выпили энергетик! Прилив сил: +50 XP."
-        xp += 50
-        
-    elif item_key == "pizza":
-        effect_message = "🍔 Вы съели пиццу! +30 XP и +20 монет."
-        xp += 30
-        coins += 20
-        
-    elif item_key == "vodka":
-        effect_message = "🥃 Вы хлопнули паленой водки!"
-        try:
-            if callback.message.chat.type in ["group", "supergroup"]:
-                await bot.restrict_chat_member(
-                    chat_id=callback.message.chat.id,
-                    user_id=callback.from_user.id,
-                    permissions=types.ChatPermissions(can_send_messages=False),
-                    until_date=int(time.time()) + 300
-                )
-                effect_message += " 🔇 (Лютющий мут на 5 минут!)"
-        except Exception:
-            pass
-        if random.random() > 0.5:
-            change = random.randint(50, 150)
-            coins += change
-            effect_message += f" Удача! Нашли еще +{change} 🪙."
-        else:
-            loss = min(coins, 100)
-            coins -= loss
-            effect_message += f" Жесть... Потеряли {loss} 🪙 на похмелье."
-            
-    elif item_key == "pc":
-        effect_message = "💻 Игровой ПК установлен! +150 респекта."
-        respect += 150
-        
-    elif item_key == "cigars":
-        effect_message = "🚬 Сигарета выкурена. Авторитет вырос: +5 респекта."
-        respect += 5
-        
-    new_level = p.get("level", 1)
-    for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
-        if xp >= data["xp"]: new_level = lvl
-
-    await asyncio.to_thread(lambda: supabase.table("users").update({
-        "coins": coins, "xp": xp, "respect": respect, "level": new_level, "inventory": new_inv_str
-    }).eq("user_id", uid).execute())
-    
-    await callback.answer(effect_message, show_alert=True)
-    
-    p_updated = await get_profile(callback.from_user)
-    items_up = [i.strip() for i in p_updated.get("inventory", "").split(",") if i.strip()]
-    if not items_up:
-        text = f"🎒 **Инвентарь игрока {p.get('username')}:**\n\nИнвентарь пуст."
-        kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")]])
-    else:
-        text = f"🎒 **Инвентарь игрока {p.get('username')}:**\n\n"
-        buttons = []
-        for idx, i_key in enumerate(items_up):
-            i_info = SHOP_CONSUMABLES.get(i_key, {"name": i_key})
-            buttons.append([InlineKeyboardButton(text=f"🎁 Использовать: {i_info['name']}", callback_data=f"use_item_{idx}_{i_key}")])
-        buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data="back_home")])
-        kb = InlineKeyboardMarkup(inline_keyboard=buttons)
-        
-    await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+    except Exception as e:
+        logging.error(f"Error in use_item: {e}")
+        await callback.answer("❌ Ошибка при использовании предмета!", show_alert=True)
 
 @dp.callback_query(F.data.startswith("do_work_"))
 async def callback_do_work(callback: types.CallbackQuery):
-    job_id = callback.data.split("_")[2]
-    job = JOBS[job_id]
-    uid = str(callback.from_user.id)
-    p = await get_profile(callback.from_user)
-    
-    now = time.time()
-    if now - WORK_COOLDOWNS.get(uid, 0) < 60:
-        rem = int(60 - (now - WORK_COOLDOWNS.get(uid, 0)))
-        await callback.answer(f"⏳ Отдохните еще {rem} сек.", show_alert=True)
-        return
+    try:
+        job_id = callback.data.split("_")[2]
+        job = JOBS[job_id]
+        uid = str(callback.from_user.id)
+        p = await get_profile(callback.from_user)
         
-    WORK_COOLDOWNS[uid] = now
-    earned_coins = random.randint(job["min_coins"], job["max_coins"])
-    earned_xp = job["xp"]
-    
-    new_coins = p.get("coins", 0) + earned_coins
-    new_xp = p.get("xp", 0) + earned_xp
-    new_level = p.get("level", 1)
-    for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
-        if new_xp >= data["xp"]: new_level = lvl
+        now = time.time()
+        if now - WORK_COOLDOWNS.get(uid, 0) < 60:
+            rem = int(60 - (now - WORK_COOLDOWNS.get(uid, 0)))
+            await callback.answer(f"⏳ Отдохните еще {rem} сек.", show_alert=True)
+            return
+            
+        WORK_COOLDOWNS[uid] = now
+        earned_coins = random.randint(job["min_coins"], job["max_coins"])
+        earned_xp = job["xp"]
         
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
-    await callback.answer(f"✅ Смена окончена! +{earned_coins} 🪙, +{earned_xp} XP", show_alert=True)
+        new_coins = p.get("coins", 0) + earned_coins
+        new_xp = p.get("xp", 0) + earned_xp
+        new_level = p.get("level", 1)
+        for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
+            if new_xp >= data["xp"]: new_level = lvl
+            
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
+        await callback.answer(f"✅ Смена окончена! +{earned_coins} 🪙, +{earned_xp} XP", show_alert=True)
+    except Exception as e:
+        logging.error(f"Error in do_work: {e}")
+        await callback.answer("❌ Ошибка при работе!", show_alert=True)
 
 @dp.callback_query(F.data == "action_sex")
 async def callback_action_sex(callback: types.CallbackQuery):
-    uid = str(callback.from_user.id)
-    p = await get_profile(callback.from_user)
-    pid, pname = p.get("partner_id"), p.get("partner_name")
-    
-    if not pid or str(pid) == "0" or not pname or pname == "EMPTY":
-        await callback.answer("🛏️ Доступно только в браке!", show_alert=True)
-        return
+    try:
+        uid = str(callback.from_user.id)
+        p = await get_profile(callback.from_user)
+        pid, pname = p.get("partner_id"), p.get("partner_name")
         
-    now = time.time()
-    if now - INTIMATE_COOLDOWNS.get(uid, 0) < 600:
-        rem = int(600 - (now - INTIMATE_COOLDOWNS.get(uid, 0)))
-        await callback.answer(f"⏳ Отдохните еще {rem // 60} мин.", show_alert=True)
-        return
-        
-    INTIMATE_COOLDOWNS[uid] = now
-    coins, xp = random.randint(50, 150), 25
-    new_coins, new_xp = p.get("coins", 0) + coins, p.get("xp", 0) + xp
-    new_level = p.get("level", 1)
-    for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
-        if new_xp >= data["xp"]: new_level = lvl
-        
-    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
-    await callback.answer(f"🔥 Романтический успех! +{coins} 🪙, +{xp} XP", show_alert=True)
+        if not pid or str(pid) == "0" or not pname or pname == "EMPTY":
+            await callback.answer("🛏️ Доступно только в браке!", show_alert=True)
+            return
+            
+        now = time.time()
+        if now - INTIMATE_COOLDOWNS.get(uid, 0) < 600:
+            rem = int(600 - (now - INTIMATE_COOLDOWNS.get(uid, 0)))
+            await callback.answer(f"⏳ Отдохните еще {rem // 60} мин.", show_alert=True)
+            return
+            
+        INTIMATE_COOLDOWNS[uid] = now
+        coins, xp = random.randint(50, 150), 25
+        new_coins, new_xp = p.get("coins", 0) + coins, p.get("xp", 0) + xp
+        new_level = p.get("level", 1)
+        for lvl, data in sorted(LEVELS.items(), key=lambda x: x[0]):
+            if new_xp >= data["xp"]: new_level = lvl
+            
+        await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute())
+        await callback.answer(f"🔥 Романтический успех! +{coins} 🪙, +{xp} XP", show_alert=True)
+    except Exception as e:
+        logging.error(f"Error in action_sex: {e}")
+        await callback.answer("❌ Ошибка!", show_alert=True)
 
 # --- ТЕКСТОВЫЕ КОМАНДЫ ---
 @dp.message(Command("me"))
@@ -732,26 +766,30 @@ async def cmd_marry(message: types.Message):
 
 @dp.callback_query(F.data.startswith("marry_"))
 async def callback_marry(callback: types.CallbackQuery):
-    data_parts = callback.data.split("_")
-    action, proposer_id = data_parts[1], int(data_parts[2])
-    accepter = callback.from_user
-    if accepter.id == proposer_id:
-        await callback.answer("Нельзя ответить на свое предложение!", show_alert=True)
-        return
-    proposer_res = supabase.table("users").select("*").eq("user_id", str(proposer_id)).execute()
-    if not proposer_res.data:
-        await callback.message.edit_text("💔 Инициатор не найден.")
-        return
-    proposer_data = proposer_res.data[0]
-    accepter_data = await get_profile(accepter)
+    try:
+        data_parts = callback.data.split("_")
+        action, proposer_id = data_parts[1], int(data_parts[2])
+        accepter = callback.from_user
+        if accepter.id == proposer_id:
+            await callback.answer("Нельзя ответить на свое предложение!", show_alert=True)
+            return
+        proposer_res = supabase.table("users").select("*").eq("user_id", str(proposer_id)).execute()
+        if not proposer_res.data:
+            await callback.message.edit_text("💔 Инициатор не найден.")
+            return
+        proposer_data = proposer_res.data[0]
+        accepter_data = await get_profile(accepter)
 
-    if action == "reject":
-        await callback.message.edit_text(f"💔 **{accepter.first_name}** отклонил(а) предложение.")
-        return
+        if action == "reject":
+            await callback.message.edit_text(f"💔 **{accepter.first_name}** отклонил(а) предложение.")
+            return
 
-    await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": str(accepter.id), "partner_name": accepter.first_name}).eq("user_id", str(proposer_id)).execute())
-    await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": str(proposer_id), "partner_name": proposer_data["username"]}).eq("user_id", str(accepter.id)).execute())
-    await callback.message.edit_text(f"🎉 Горько! **{proposer_data['username']}** и **{accepter.first_name}** поженились! 💍❤️")
+        await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": str(accepter.id), "partner_name": accepter.first_name}).eq("user_id", str(proposer_id)).execute())
+        await asyncio.to_thread(lambda: supabase.table("users").update({"partner_id": str(proposer_id), "partner_name": proposer_data["username"]}).eq("user_id", str(accepter.id)).execute())
+        await callback.message.edit_text(f"🎉 Горько! **{proposer_data['username']}** и **{accepter.first_name}** поженились! 💍❤️")
+    except Exception as e:
+        logging.error(f"Error in marry callback: {e}")
+        await callback.answer("❌ Ошибка при заключении брака!", show_alert=True)
 
 @dp.message(Command("partner"))
 async def cmd_partner(message: types.Message):
