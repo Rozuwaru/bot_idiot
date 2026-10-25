@@ -11,12 +11,13 @@ from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
 from supabase import create_client, Client
 
+# --- НАСТРОЙКИ (КЛЮЧИ И ТОКЕНЫ) ---
 BOT_TOKEN = "8844907899:AAGGQlQscoqCFCYnt9F-ESOGaeyHOoo4Ydl"
 SUPABASE_URL = "https://cbypocbgeevwqhjahchy.supabase.co"
 SUPABASE_KEY = "sb_secret_-UrHMAqT_WUBb1xdj9fWTQ_TXK2GxGt"
 
 ADMIN_USERNAMES = {"p0tat0777"}
-DUEL_MUTE_TIME = 3 
+DUEL_MUTE_TIME = 3
 
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=BOT_TOKEN)
@@ -327,7 +328,7 @@ async def cmd_ball(message: types.Message, command: CommandObject):
     if not command.args: return
     await message.reply(f"🔮 {random.choice(BALL_ANSWERS)}")
 
-# Админ-команды
+# --- АДМИНСКИЕ КОМАНДЫ ---
 @dp.message(Command("add_xp"), F.reply_to_message)
 async def a_add_xp(message: types.Message, command: CommandObject):
     if not is_admin(message.from_user) or not command.args or not command.args.isdigit(): return
@@ -389,7 +390,7 @@ async def a_reset(message: types.Message):
     update_profile(message.reply_to_message.from_user.id, {"xp": 0, "level": 1, "coins": 100, "items": [], "wins": 0, "partner_id": 0, "partner_name": ""})
     await message.reply("💥 Прогресс пользователя сброшен.")
 
-# --- ВЕБ-СЕРВЕР ДЛЯ RENDER (ЧТОБЫ СЕРВИС НЕ ПАДАЛ) ---
+# --- ВЕБ-СЕРВЕР ДЛЯ RENDER ---
 async def handle_web(request):
     return web.Response(text="Bot is running!")
 
