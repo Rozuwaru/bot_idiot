@@ -172,12 +172,12 @@ def format_age(seconds: int) -> str:
     if hours > 0 or days > 0:
         res.append(f"{hours} час.")
     res.append(f"{minutes} мин.")
-    return " ".join(res)
+    return " ".join(res) if res else "0 мин."
 
 def get_child_age(birth_time: int) -> str:
-    if not birth_time:
+    if not birth_time or int(birth_time) == 0:
         return "0 лет"
-    diff = time.time() - birth_time
+    diff = time.time() - int(birth_time)
     years = diff / 259200
     if years < 1:
         months = int(years * 12)
@@ -191,16 +191,21 @@ def is_admin(user: types.User) -> bool:
 
 async def get_profile(user: types.User):
     uid = str(user.id)
+    now = int(time.time())
     def _fetch():
         return supabase.table("users").select("*").eq("user_id", uid).execute()
     try:
         response = await asyncio.to_thread(_fetch)
         if response.data:
-            return response.data[0]
+            user_data = response.data[0]
+            # Если в старой базе created_at был равен 0, обновляем его текущим временем
+            if not user_data.get("created_at") or int(user_data.get("created_at", 0)) == 0:
+                supabase.table("users").update({"created_at": now}).eq("user_id", uid).execute()
+                user_data["created_at"] = now
+            return user_data
     except Exception as e:
         logging.error(f"Supabase fetch error: {e}")
 
-    now = int(time.time())
     new_user = {
         "user_id": uid,
         "username": user.username or user.first_name,
@@ -267,13 +272,13 @@ async def get_or_create_family(uid1: str, uid2: str):
 def get_main_keyboard(user_id: int):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👤 Профиль", callback_data=f"menu_profile_{user_id}"),
-         InlineKeyboardButton(text="🎒 Инвентарь", callback_data=f"menu_inv_{user_id}")],
+         InlineKeyboardButton(text="🎒 Инвентарь", callback_data=f"menu_inv_{user_id})],
         [InlineKeyboardButton(text="⚔️ Оружейная", callback_data=f"menu_armory_{user_id}"),
-         InlineKeyboardButton(text="🛒 Магазины", callback_data=f"menu_shops_{user_id}")],
+         InlineKeyboardButton(text="🛒 Магазины", callback_data=f"menu_shops_{user_id})],
         [InlineKeyboardButton(text="🍑 Секс-шоп", callback_data=f"menu_sexshop_{user_id}"),
-         InlineKeyboardButton(text="🏠 Личное имущество", callback_data=f"menu_personal_{user_id}")],
+         InlineKeyboardButton(text="🏠 Личное имущество", callback_data=f"menu_personal_{user_id})],
         [InlineKeyboardButton(text="🏆 Топ игроков", callback_data=f"menu_top_{user_id}"),
-         InlineKeyboardButton(text="💼 Биржа труда", callback_data=f"menu_work_{user_id}")],
+         InlineKeyboardButton(text="💼 Биржа труда", callback_data=f"menu_work_{user_id})],
         [InlineKeyboardButton(text="🎰 Казино и игры", callback_data=f"menu_casino_{user_id}"),
          InlineKeyboardButton(text="💍 Отношения и Семья", callback_data=f"menu_marry_{user_id}")]
     ])
@@ -324,12 +329,12 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             title = LEVELS.get(lvl, {}).get("title", "Воин")
             pid, pname = p.get("partner_id"), p.get("partner_name")
             
-            created_at = p.get("created_at") or int(time.time())
-            bot_age = format_age(int(time.time()) - int(created_at))
+            created_at = int(p.get("created_at") or time.time())
+            bot_age = format_age(int(time.time()) - created_at)
             
             if pid and str(pid) != "0" and pname != "EMPTY":
-                m_time = p.get("marriage_time") or int(time.time())
-                marriage_duration = format_age(int(time.time()) - int(m_time))
+                m_time = int(p.get("marriage_time") or time.time())
+                marriage_duration = format_age(int(time.time()) - m_time)
                 marriage = f"💍 В браке с: **{pname}** (уже {marriage_duration})"
             else:
                 marriage = "💍 Статус: Свободен"
@@ -486,12 +491,12 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
         elif action == "marry":
             pid, pname = p.get("partner_id"), p.get("partner_name")
             if pid and str(pid) != "0" and pname != "EMPTY":
-                m_time = p.get("marriage_time") or int(time.time())
-                md = format_age(int(time.time()) - int(m_time))
+                m_time = int(p.get("marriage_time") or time.time())
+                md = format_age(int(time.time()) - m_time)
                 text = f"💍 **СЕМЕЙНЫЙ ОЧАГ:**\n\n💍 В браке с: **{pname}**\n⏳ Длительность брака: `{md}`"
                 kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🏡 Меню семьи", callback_data="family_main"),
-                     InlineKeyboardButton(text="🍑 Уединиться (/sex)", callback_data="action_sex")],
+                     InlineKeyboardButton(text="🍑 Уединиться (/sex)", callback_data="action_sex_menu")],
                     [InlineKeyboardButton(text="💔 Развестись (/divorce)", callback_data="action_divorce"),
                      InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
                 ])
@@ -528,7 +533,6 @@ async def slots_help_callback(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data.startswith("buy_sex_"))
 async def buy_sex_item(callback: types.CallbackQuery, state: FSMContext):
-    # Безопасный парсинг с конца (последний элемент - uid, предпоследний - ключ товара)
     parts = callback.data.split("_")
     uid = parts[-1]
     item_key = "_".join(parts[2:-1])
@@ -1018,7 +1022,6 @@ async def callback_unequip_item(callback: types.CallbackQuery, state: FSMContext
 
 @dp.callback_query(F.data.startswith("buy_cons_"))
 async def callback_buy_cons(callback: types.CallbackQuery, state: FSMContext):
-    # Безопасный парсинг с конца для составных ключей продуктов (например beer_okhota)
     parts = callback.data.split("_")
     uid = parts[-1]
     item_key = "_".join(parts[2:-1])
@@ -1216,33 +1219,73 @@ async def callback_do_work(callback: types.CallbackQuery):
         logging.error(f"Error in do_work: {e}")
         await callback.answer("❌ Ошибка при работе!", show_alert=True)
 
-@dp.callback_query(F.data == "action_sex")
-async def callback_action_sex(callback: types.CallbackQuery):
-    await process_sex_action(callback.message, callback.from_user)
+# --- НОВАЯ СИСТЕМА ИНТИМА С ВЫБОРОМ ПРЕДМЕТА И СПЛОШНЫМ ТЕКСТОМ ---
+
+@dp.callback_query(F.data == "action_sex_menu")
+async def callback_action_sex_menu(callback: types.CallbackQuery):
+    await show_sex_selection(callback.message, callback.from_user)
     await callback.answer()
 
 @dp.message(Command("sex"))
 async def cmd_sex_text(message: types.Message, state: FSMContext):
     await state.clear()
-    await process_sex_action(message, message.from_user)
+    await show_sex_selection(message, message.from_user)
 
-async def process_sex_action(message_obj, user_obj):
+async def show_sex_selection(message_obj, user_obj):
+    p = await get_profile(user_obj)
+    pid, pname = p.get("partner_id"), p.get("partner_name")
+    
+    if not pid or str(pid) == "0" or not pname or pname == "EMPTY":
+        if isinstance(message_obj, types.CallbackQuery):
+            await message_obj.answer("🛏️ Эта команда доступна только тем, кто состоит в браке!", show_alert=True)
+        else:
+            await message_obj.answer("🛏️ Эта команда доступна только тем, кто состоит в браке!")
+        return
+
+    uid = str(user_obj.id)
+    now = time.time()
+    if now - INTIMATE_COOLDOWNS.get(uid, 0) < 600:
+        rem = int(600 - (now - INTIMATE_COOLDOWNS.get(uid, 0)))
+        text_cd = f"⏳ Вы слишком устали. Отдохните еще {rem // 60} мин."
+        if isinstance(message_obj, types.CallbackQuery):
+            await message_obj.answer(text_cd, show_alert=True)
+        else:
+            await message_obj.answer(text_cd)
+        return
+
+    inv_str = p.get("inventory") or ""
+    items = [i.strip() for i in inv_str.split(",") if i.strip() and i.strip().startswith("sex_")]
+    
+    buttons = []
+    for i_key in items:
+        i_name = SEX_SHOP.get(i_key, {}).get("name", i_key)
+        buttons.append([InlineKeyboardButton(text=f"Использовать: {i_name}", callback_data=f"sex_use_{i_key}")])
+    
+    # Добавим вариант без предметов
+    buttons.append([InlineKeyboardButton(text="Без игрушек", callback_data="sex_use_none")])
+    kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+    
+    text = f"🍑 Выберите предмет для уединения с партнером {pname}:"
+    if isinstance(message_obj, types.CallbackQuery):
+        await message_obj.edit_text(text, reply_markup=kb)
+    else:
+        await message_obj.answer(text, reply_markup=kb)
+
+@dp.callback_query(F.data.startswith("sex_use_"))
+async def callback_sex_use_item(callback: types.CallbackQuery):
     try:
+        item_key = callback.data.replace("sex_use_", "")
+        user_obj = callback.from_user
         uid = str(user_obj.id)
+        
         p = await get_profile(user_obj)
         pid, pname = p.get("partner_id"), p.get("partner_name")
         
-        if not pid or str(pid) == "0" or not pname or pname == "EMPTY":
-            await message_obj.answer("🛏️ Эта команда доступна только тем, кто состоит в браке!")
+        if not pid or str(pid) == "0":
+            await callback.answer("❌ Вы не в браке!", show_alert=True)
             return
             
-        now = time.time()
-        if now - INTIMATE_COOLDOWNS.get(uid, 0) < 600:
-            rem = int(600 - (now - INTIMATE_COOLDOWNS.get(uid, 0)))
-            await message_obj.answer(f"⏳ Вы слишком устали. Отдохните еще `{rem // 60} мин.`", parse_mode=ParseMode.MARKDOWN)
-            return
-            
-        INTIMATE_COOLDOWNS[uid] = now
+        INTIMATE_COOLDOWNS[uid] = time.time()
         coins, xp = random.randint(80, 200), 40
         new_coins, new_xp = p.get("coins", 0) + coins, p.get("xp", 0) + xp
         new_level = p.get("level", 1)
@@ -1253,42 +1296,27 @@ async def process_sex_action(message_obj, user_obj):
             await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", p["user_id"]).execute())
         except Exception:
             pass
+
+        # Детализированные пошлые описания сплошным текстом без спецсимволов и списков
+        descriptions = {
+            "none": f"Воздух в комнате мгновенно раскаляется от жажды близости когда {user_obj.first_name} прижимает к себе {pname} и страстно впивается в губы срывая остатки одежды. Тела сливаются в единое целое в диком и безудержном ритме под громкие стоны наполняющие каждый угол спальни. Каждое движение пропитано безумной страстью доводя обоих до исступления и дикой сладкой разрядки.",
+            "sex_vibe": f"В тишине спальни {user_obj.first_name} берет мощный вибратор и начинает медленно сводить с ума {pname} исследуя каждый сантиметр чувствительного тела. Глубокие вибрации заставляют {pname} выгибаться в дугу и исступленно кричать от накатывающих волн оргазмического экстаза. Страсть перерастает в жесткий и дикий процесс где каждый толчок приносит сокрушительное удовольствие.",
+            "sex_gag": f"Кожаный кляп надежно запирает губы {pname} оставляя лишь глухие сладкие стоны в то время как {user_obj.first_name} берет полный контроль над ситуацией. Жесткие и глубокие движения заставляют тело партнера биться в судорогах полного подчинения и восторга. Воздух наполнен запахом пота и раскаленной страсти доведенной до абсолютного предела.",
+            "sex_cuff": f"Туго затянутые кожаные наручники фиксируют запястья {pname} к спинке кровати лишая любой возможности сопротивления. {user_obj.first_name} неспешно и властно наслаждается каждым дюймом полностью беспомощного и разгоряченного тела партнера. Глубокие и резкие толчки заставляют комнату дрожать от диких стонов и дикого животного влечения.",
+            "sex_maid": f"Соблазнительный костюм горничной на {pname} сводит {user_obj.first_name} с ума с первой же секунды провоцируя на самые смелые фантазии. Отрезвляющая страсть выплескивается наружу в жестком и стремительном ритме когда преграды между партнерами окончательно стираются. Интенсивность движений нарастает с каждой секундой приводя к мощному взрыву удовольствия.",
+            "sex_whip": f"Легкие и звонкие удары хлыстом заставляют нежную кожу {pname} покрываться мурашками а кровь бурлить от дикого адреналина. {user_obj.first_name} властно управляет процессом требуя полной отдачи и громких стонов в ответ на каждое движение. Безумная страсть захватывает обоих погружая в пучину греховного и безудержного наслаждения.",
+            "sex_oil": f"Тёплое массажное масло щедро растекается по обнаженным телам делая каждое прикосновение {user_obj.first_name} и {pname} невероятно скользким и жгучим. Руки скользят по изгибам вызывая дрожь во всем теле и заставляя дыхание срываться на крик. Процесс превращается в плавное но невероятно жаркое и страстное соитие.",
+            "sex_mask": f"Кружевная маска скрывающая лицо {pname} добавляет происходящему атмосферу запретного и тайного греха. {user_obj.first_name} действует жестко и уверенно растворяясь в темноте спальни под звуки тяжелого дыхания и шлепки тел. Страсть достигает своего пика оставляя после себя сладкую истому."
+        }
+
+        desc = descriptions.get(item_key, descriptions["none"])
+        final_text = f"{desc}\n\nНаграда за уединение: +{coins} монет и +{xp} опыта."
         
-        inv = p.get("inventory", "")
-        has_vibe = "sex_vibe" in inv
-        has_gag = "sex_gag" in inv
-        has_cuff = "sex_cuff" in inv
-        has_maid = "sex_maid" in inv
-        has_whip = "sex_whip" in inv
-        has_oil = "sex_oil" in inv
-        has_mask = "sex_mask" in inv
-        
-        desc = f"🔥 Воздух в комнате раскаляется до предела. **{user_obj.first_name}** прижимает к себе **{pname}** так сильно, что между ними не остается ни единого миллиметра пространства.\n\n"
-        
-        if has_maid:
-            desc += f"🎀 На **{pname}** надет соблазнительный костюм горничной, который сводит с ума.\n"
-        if has_mask:
-            desc += f"🎭 Кружевная маска скрывает лицо, придавая процессу атмосферу тайного греха.\n"
-        if has_oil:
-            desc += f"🧴 Тёплое массажное масло делает каждое движение невероятно плавным и горячим.\n"
-        if has_cuff:
-            desc += f"⛓️ Кожаные наручники жестко фиксируют запястья **{pname}**, полностью подчиняя волю партнера.\n"
-        if has_gag:
-            desc += f"🔴 Бархатный кляп надежно запирает губы, превращая любые попытки сопротивления в сладкие стоны.\n"
-        if has_whip:
-            desc += f"🖤 Легкие удары хлыстом заставляют кожу гореть, а кровь бурлить от адреналина.\n"
-        if has_vibe:
-            desc += f"🟣 Мощный вибратор доводит тело до судорог и безумия под глухие всхлипы...\n"
-        
-        if not (has_vibe or has_gag or has_cuff or has_maid or has_whip or has_oil or has_mask):
-            desc += "Дикие, безудержные стоны наполняют комнату, тела сплетаются в единое целое в жестком и страстном ритме... 💦👅\n"
-        
-        desc += f"\n✨ Интимная страсть приносит бурную разрядку: +{coins} 🪙 и +{xp} XP."
-        
-        await message_obj.answer(desc, parse_mode=ParseMode.MARKDOWN)
+        await callback.message.edit_text(final_text)
+        await callback.answer("Близость удалась!", show_alert=True)
     except Exception as e:
-        logging.error(f"Error in process_sex_action: {e}")
-        await message_obj.answer("❌ Произошла ошибка в процессе!")
+        logging.error(f"Error in sex action: {e}")
+        await callback.answer("❌ Произошла ошибка!", show_alert=True)
 
 @dp.message(Command("me"))
 async def cmd_me(message: types.Message, state: FSMContext):
@@ -1298,12 +1326,12 @@ async def cmd_me(message: types.Message, state: FSMContext):
     title = LEVELS.get(lvl, {}).get("title", "Воин")
     pid, pname = p.get("partner_id"), p.get("partner_name")
     
-    created_at = p.get("created_at") or int(time.time())
-    bot_age = format_age(int(time.time()) - int(created_at))
+    created_at = int(p.get("created_at") or time.time())
+    bot_age = format_age(int(time.time()) - created_at)
     
     if pid and str(pid) != "0" and pname != "EMPTY":
-        m_time = p.get("marriage_time") or int(time.time())
-        md = format_age(int(time.time()) - int(m_time))
+        m_time = int(p.get("marriage_time") or time.time())
+        md = format_age(int(time.time()) - m_time)
         marriage = f"💍 В браке с: **{pname}** (уже {md})"
     else:
         marriage = "💍 Статус: Свободен"
@@ -1566,15 +1594,15 @@ async def cmd_slots(message: types.Message, state: FSMContext):
     
     multiplier = 0
     if r1 == 3 and r2 == 3 and r3 == 3:
-        multiplier = 10  # 777
+        multiplier = 10
     elif r1 == 3 and r2 == 3:
-        multiplier = 5   # 77...
+        multiplier = 5
     elif r1 == r2 == r3:
-        multiplier = 3   # 3 одинаковых
+        multiplier = 3
     elif r1 == r2:
-        multiplier = 2   # первые 2 одинаковых
+        multiplier = 2
     else:
-        multiplier = 0   # проигрыш
+        multiplier = 0
 
     if multiplier > 0:
         win = bet * multiplier
@@ -1588,7 +1616,6 @@ async def cmd_slots(message: types.Message, state: FSMContext):
     except Exception:
         pass
     
-    # Только коэффициент/проигрыш и баланс, без указания выпавших смайликов
     await message.answer(f"{res_text}\n💰 Баланс: `{coins}` 🪙", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("ball"))
@@ -1695,8 +1722,8 @@ async def cmd_partner(message: types.Message, state: FSMContext):
     if not pid or str(pid) == "0" or not pname or pname == "EMPTY":
         await message.answer("💍 У вас нет партнера.", parse_mode=ParseMode.MARKDOWN)
     else:
-        m_time = p.get("marriage_time") or int(time.time())
-        md = format_age(int(time.time()) - int(m_time))
+        m_time = int(p.get("marriage_time") or time.time())
+        md = format_age(int(time.time()) - m_time)
         await message.answer(f"💍 Вторая половинка: **{pname}** ❤️\n⏳ В браке уже: `{md}`", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("divorce"))
@@ -1717,7 +1744,7 @@ async def cmd_divorce(message: types.Message, state: FSMContext):
 @dp.message(Command("sex"))
 async def cmd_sex_text(message: types.Message, state: FSMContext):
     await state.clear()
-    await process_sex_action(message, message.from_user)
+    await show_sex_selection(message, message.from_user)
 
 async def verify_admin(message: types.Message) -> bool:
     if not is_admin(message.from_user):
