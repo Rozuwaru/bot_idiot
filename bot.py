@@ -25,9 +25,10 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Состояния для ввода имени ребенка
+# Состояния FSM
 class FamilyState(StatesGroup):
     waiting_for_child_name = State()
+    waiting_for_deposit_amount = State()
 
 # --- 67 УРОВНЕЙ, ОПЫТ И ТИТУЛЫ ---
 LEVELS = {
@@ -128,23 +129,23 @@ SHOP_CONSUMABLES = {
 }
 
 APARTMENTS_CAT = {
-    "apt_studio": {"name": "🏢 Студия на окраине", "price": 1200},
-    "apt_1k": {"name": "🏢 1-комнатная квартира", "price": 2500},
-    "apt_3k": {"name": "🏢 3-комнатная в центре", "price": 5500},
-    "apt_penthouse": {"name": "🏢 Элитный пентхаус", "price": 15000},
+    "studio": {"name": "🏢 Студия на окраине", "price": 1200},
+    "1k": {"name": "🏢 1-комнатная квартира", "price": 2500},
+    "3k": {"name": "🏢 3-комнатная в центре", "price": 5500},
+    "penthouse": {"name": "🏢 Элитный пентхаус", "price": 15000},
 }
 
 HOUSES_CAT = {
-    "house_dacha": {"name": "🏡 Дачный домик", "price": 4000},
-    "house_cottage": {"name": "🏡 Загородный коттедж", "price": 10000},
-    "house_villa": {"name": "🏡 Элитная вилла с бассейном", "price": 30000},
+    "dacha": {"name": "🏡 Дачный домик", "price": 4000},
+    "cottage": {"name": "🏡 Загородный коттедж", "price": 10000},
+    "villa": {"name": "🏡 Элитная вилла с бассейном", "price": 30000},
 }
 
 CARS_CAT = {
-    "car_old": {"name": "🚗 Старая ВАЗ (Б/У)", "price": 900},
-    "car_sedan": {"name": "🚗 Городской седан", "price": 3000},
-    "car_suv": {"name": "🚗 Семейный кроссовер", "price": 8000},
-    "car_sport": {"name": "🏎 Спортивный суперкар", "price": 22000},
+    "old": {"name": "🚗 Старая ВАЗ (Б/У)", "price": 900},
+    "sedan": {"name": "🚗 Городской седан", "price": 3000},
+    "suv": {"name": "🚗 Семейный кроссовер", "price": 8000},
+    "sport": {"name": "🏎 Спортивный суперкар", "price": 22000},
 }
 
 def is_admin(user: types.User) -> bool:
@@ -350,11 +351,15 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             text = (
                 "🎰 **КАЗИНО И ИГРЫ:**\n\n"
                 "Доступные игры в чате:\n"
-                "• `/dice <ставка> <числа от 1 до 6>` (Кубик, можно до 3 чисел!\n  Пример: `/dice 100 2 5 6` | 1 число х6, 2 числа х3, 3 числа х2)\n"
+                "• `/dice <ставка> <числа 1-6>` (Кубик, до 3 чисел | x6, x3, x2)\n"
                 "• `/coin <ставка> <орел/решка>` (Монетка 50/50, x2)\n"
-                "• `/slots <ставка>` (Слоты)"
+                "• `/slots <ставка>` (Слоты с анимированными барабанами ТГ)\n\n"
+                "💡 Нажмите кнопку ниже для справки по выигрышам в слотах:"
             )
-            kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]])
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="📖 Справка по слотам", callback_data=f"slots_help_{uid}")],
+                [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
+            ])
             await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             
         elif action == "marry":
@@ -378,6 +383,27 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
     except Exception as e:
         logging.error(f"Error in callback_main_menu: {e}")
         await callback.answer("❌ Произошла ошибка!", show_alert=True)
+
+# Справка по слотам через инлайн-кнопку
+@dp.callback_query(F.data.startswith("slots_help_"))
+async def slots_help_callback(callback: types.CallbackQuery):
+    uid = callback.data.split("_")[2]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+    text = (
+        "🎰 **ТАБЛИЦА КОМБИНАЦИЙ И ВЫИГРЫШЕЙ В СЛОТАХ:**\n\n"
+        "👑 **777** (Три семерки) — множитель **x10**\n"
+        "🌟 **Любые 3 одинаковых** (например, три лимона или винограда) — множитель **x5**\n"
+        "✨ **Любые 2 одинаковых символа** — множитель **x2**\n"
+        "❌ **Остальные комбинации** — проигрыш\n\n"
+        "👉 Запуск игры в чате: `/slots <ставка>`"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔙 Назад в казино", callback_data=f"menu_casino_{uid}")]
+    ])
+    await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+    await callback.answer()
 
 # --- МАГАЗИН ЛИЧНОГО ИМУЩЕСТВА ---
 @dp.callback_query(F.data.startswith("pers_shop_apt_"))
@@ -419,8 +445,8 @@ async def pers_shop_car(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("pers_buy_"))
 async def pers_buy_item(callback: types.CallbackQuery, state: FSMContext):
     parts = callback.data.split("_")
-    category = parts[2] # apt, house, car
-    item_key = parts[3]
+    category = parts[2] 
+    item_key = parts[3] 
     uid = parts[4]
     
     if str(callback.from_user.id) != uid:
@@ -431,13 +457,13 @@ async def pers_buy_item(callback: types.CallbackQuery, state: FSMContext):
     item_data = {}
     col_name = ""
     if category == "apt":
-        item_data = APARTMENTS_CAT[f"apt_{item_key}"] if f"apt_{item_key}" in APARTMENTS_CAT else APARTMENTS_CAT[item_key] # fallback
+        item_data = APARTMENTS_CAT[item_key]
         col_name = "personal_apartment"
     elif category == "house":
-        item_data = HOUSES_CAT[f"house_{item_key}"] if f"house_{item_key}" in HOUSES_CAT else HOUSES_CAT[item_key]
+        item_data = HOUSES_CAT[item_key]
         col_name = "personal_house"
     elif category == "car":
-        item_data = CARS_CAT[f"car_{item_key}"] if f"car_{item_key}" in CARS_CAT else CARS_CAT[item_key]
+        item_data = CARS_CAT[item_key]
         col_name = "personal_car"
         
     if p.get("coins", 0) < item_data["price"]:
@@ -452,12 +478,11 @@ async def pers_buy_item(callback: types.CallbackQuery, state: FSMContext):
     
     await callback.answer(f"🎉 Успешно куплено: {item_data['name']}!", show_alert=True)
     
-    # Возврат в меню личного имущества
     callback.data = f"menu_personal_{uid}"
     await callback_main_menu(callback, state)
 
 
-# --- РАСШИРЕННОЕ МЕНЮ СЕМЬИ ---
+# --- СЕМЕЙНОЕ МЕНЮ И УПРАВЛЕНИЕ БЮДЖЕТОМ / ДЕТЬМИ ---
 @dp.callback_query(F.data == "family_main")
 async def callback_family_main(callback: types.CallbackQuery, state: FSMContext):
     try:
@@ -483,7 +508,7 @@ async def callback_family_main(callback: types.CallbackQuery, state: FSMContext)
         )
         
         kb = InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="💵 Вложить 100 🪙", callback_data="fam_deposit"),
+            [InlineKeyboardButton(text="💵 Вложить в бюджет", callback_data="fam_deposit_prompt"),
              InlineKeyboardButton(text="🍔 Купить еду (50 🪙)", callback_data="fam_buy_food")],
             [InlineKeyboardButton(text="🏢 Выбрать квартиру", callback_data="fam_shop_apt"),
              InlineKeyboardButton(text="🏡 Выбрать дом", callback_data="fam_shop_house")],
@@ -491,6 +516,7 @@ async def callback_family_main(callback: types.CallbackQuery, state: FSMContext)
              InlineKeyboardButton(text="👶 Завести ребенка (1000 🪙)", callback_data="fam_buy_child")],
             [InlineKeyboardButton(text="🍼 Покормить ребенка", callback_data="fam_feed_child"),
              InlineKeyboardButton(text="🧸 Поиграть с ребенком", callback_data="fam_play_child")],
+            [InlineKeyboardButton(text="🗑 Отдать ребенка", callback_data="fam_delete_child")],
             [InlineKeyboardButton(text="🔙 Назад к отношениям", callback_data=f"menu_marry_{uid}")]
         ])
         await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
@@ -528,7 +554,7 @@ async def fam_buy_specific_item(callback: types.CallbackQuery, state: FSMContext
     try:
         parts = callback.data.replace("fam_buy_item_", "").split("_", 1)
         category = parts[0]
-        item_key = f"{parts[0]}_{parts[1]}"
+        item_key = parts[1]
         
         p = await get_profile(callback.from_user)
         pid = p.get("partner_id")
@@ -571,17 +597,28 @@ async def callback_family_actions(callback: types.CallbackQuery, state: FSMConte
             
         fam = await get_or_create_family(callback.from_user.id, pid)
         fam_id = fam["family_id"]
-        coins = p.get("coins", 0)
         
-        if action == "deposit":
-            if coins < 100:
-                await callback.answer("❌ У вас недостаточно монет (нужно 100 🪙)!", show_alert=True)
+        if callback.data == "fam_deposit_prompt":
+            await state.set_state(FamilyState.waiting_for_deposit_amount)
+            await state.update_data(fam_id=fam_id, current_budget=fam["budget"])
+            await callback.message.edit_text(
+                "💵 **ПОПЛАНЕНИЕ СЕМЕЙНОГО БЮДЖЕТА**\n\nВведите сумму монет, которую хотите внести:",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            await callback.answer()
+            return
+            
+        elif callback.data == "fam_delete_child":
+            if fam["child_name"] == "❌ Нет":
+                await callback.answer("❌ У вас нет ребенка!", show_alert=True)
                 return
-            new_coins = coins - 100
-            new_budget = fam["budget"] + 100
-            await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_coins}).eq("user_id", p["user_id"]).execute())
-            await asyncio.to_thread(lambda: supabase.table("families").update({"budget": new_budget}).eq("family_id", fam_id).execute())
-            await callback.answer("✅ Вы успешно внесли 100 монет в семейный бюджет!", show_alert=True)
+            await asyncio.to_thread(lambda: supabase.table("families").update({
+                "child_name": "❌ Нет",
+                "child_hunger": 100
+            }).eq("family_id", fam_id).execute())
+            await callback.answer("🗑 Ребенок был отдан в приют.", show_alert=True)
+            await callback_family_main(callback, state)
+            return
             
         elif action == "buy" and callback.data.split("_")[2] == "food":
             if fam["budget"] < 50:
@@ -634,6 +671,34 @@ async def callback_family_actions(callback: types.CallbackQuery, state: FSMConte
     except Exception as e:
         logging.error(f"Error in family actions: {e}")
         await callback.answer("❌ Ошибка!", show_alert=True)
+
+@dp.message(FamilyState.waiting_for_deposit_amount)
+async def process_deposit_amount(message: types.Message, state: FSMContext):
+    try:
+        amount = int(message.text.strip())
+        if amount <= 0:
+            raise ValueError()
+    except ValueError:
+        await message.answer("❌ Введите корректное положительное число монет:")
+        return
+        
+    p = await get_profile(message.from_user)
+    if p.get("coins", 0) < amount:
+        await message.answer(f"❌ У вас недостаточно монет! На балансе: {p.get('coins', 0)} 🪙. Введите другую сумму:")
+        return
+        
+    data = await state.get_data()
+    fam_id = data.get("fam_id")
+    current_budget = data.get("current_budget")
+    
+    new_user_coins = p["coins"] - amount
+    new_budget = current_budget + amount
+    
+    await asyncio.to_thread(lambda: supabase.table("users").update({"coins": new_user_coins}).eq("user_id", p["user_id"]).execute())
+    await asyncio.to_thread(lambda: supabase.table("families").update({"budget": new_budget}).eq("family_id", fam_id).execute())
+    
+    await state.clear()
+    await message.answer(f"✅ Вы успешно внесли `{amount}` монет в семейный бюджет! 💵 (Общий бюджет: `{new_budget}` 🪙)", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(FamilyState.waiting_for_child_name)
 async def process_child_name(message: types.Message, state: FSMContext):
@@ -1053,7 +1118,6 @@ async def give_respect(message: types.Message):
     await asyncio.to_thread(lambda: supabase.table("users").update({"respect": new_respect}).eq("user_id", str(target.id)).execute())
     await message.answer(f"👍 Респект **{target.first_name}** повышен! (`{new_respect}`)", parse_mode=ParseMode.MARKDOWN)
 
-# --- ИГРА В КУБИК (ДО 3 ЧИСЕЛ ОДНОВРЕМЕННО) ---
 @dp.message(Command("dice"))
 async def cmd_dice(message: types.Message, state: FSMContext):
     await state.clear()
@@ -1061,7 +1125,7 @@ async def cmd_dice(message: types.Message, state: FSMContext):
     if len(args) < 3:
         await message.answer(
             "❌ Использование: `/dice <ставка> <числа от 1 до 6>`\n"
-            "Пример (поставить на три числа 2, 5, 6): `/dice 100 2 5 6`\n\n"
+            "Пример: `/dice 100 2 5 6`\n\n"
             "📈 **Коэффициенты:**\n"
             "• 1 число — **x6**\n"
             "• 2 числа — **x3**\n"
@@ -1071,7 +1135,6 @@ async def cmd_dice(message: types.Message, state: FSMContext):
         return
     try:
         bet = int(args[1])
-        # Собираем уникальные числа от пользователя (от 1 до 3 штук)
         chosen = []
         for x in args[2:]:
             num = int(x)
@@ -1109,7 +1172,6 @@ async def cmd_dice(message: types.Message, state: FSMContext):
         await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
         await message.answer(f"🎲 Выпало **{roll}**. К сожалению, вы проиграли `{bet}` монет. 💸 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
 
-# --- ИГРА МОНЕТКА (50/50) ---
 @dp.message(Command("coin"))
 async def cmd_coin(message: types.Message, state: FSMContext):
     await state.clear()
@@ -1117,7 +1179,7 @@ async def cmd_coin(message: types.Message, state: FSMContext):
     if len(args) < 3:
         await message.answer(
             "❌ Использование: `/coin <ставка> <орел/решка>`\n"
-            "Пример: `/coin 100 орел` (или `/coin 100 о` / `р`)", 
+            "Пример: `/coin 100 орел`", 
             parse_mode=ParseMode.MARKDOWN
         )
         return
@@ -1132,7 +1194,7 @@ async def cmd_coin(message: types.Message, state: FSMContext):
         elif choice_input in ["решка", "р", "tail", "tails"]:
             user_choice = "решка"
         else:
-            await message.answer("❌ Выберите сторону: `орел` или `решка` (можно сокращенно: `о` / `р`).", parse_mode=ParseMode.MARKDOWN)
+            await message.answer("❌ Выберите сторону: `орел` или `решка`.", parse_mode=ParseMode.MARKDOWN)
             return
     except ValueError:
         await message.answer("❌ Неверная ставка!", parse_mode=ParseMode.MARKDOWN)
@@ -1156,13 +1218,21 @@ async def cmd_coin(message: types.Message, state: FSMContext):
         await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
         await message.answer(f"🪙 Выпал **{result}**. Вы проиграли `{bet}` монет. 💸 (Баланс: `{coins}`)", parse_mode=ParseMode.MARKDOWN)
 
-
+# --- ИГРА СЛОТЫ С АНИМАЦИЕЙ ТЕЛЕГРАМ И КОМБИНАЦИЯМИ ---
 @dp.message(Command("slots"))
 async def cmd_slots(message: types.Message, state: FSMContext):
     await state.clear()
     args = message.text.split()
     if len(args) < 2:
-        await message.answer("Использование: `/slots <ставка>`", parse_mode=ParseMode.MARKDOWN)
+        await message.answer(
+            "❌ Использование: `/slots <ставка>`\n\n"
+            "🎰 **Таблица выигрышей в слотах:**\n"
+            "• 👑 **777** — x10\n"
+            "• 🌟 **3 одинаковых (других)** — x5\n"
+            "• ✨ **2 одинаковых символа** — x2\n"
+            "• ❌ Остальное — проигрыш", 
+            parse_mode=ParseMode.MARKDOWN
+        )
         return
     try:
         bet = int(args[1])
@@ -1177,27 +1247,47 @@ async def cmd_slots(message: types.Message, state: FSMContext):
         return
         
     slot_msg = await message.answer_dice(emoji="🎰")
-    val = slot_msg.dice.value
+    val = slot_msg.dice.value # Значение от 1 до 64
     
     await asyncio.sleep(3)
     
     coins = p["coins"] - bet
-    is_jackpot = val in [1, 22, 43, 64]
-    is_win = val in [16, 23, 34, 41, 52, 59] or is_jackpot
     
-    if is_jackpot:
-        win = bet * 5
-        coins += win
-        res_text = f"🎉 ДЖЕКПОТ (x5)! Вы выиграли `+{win}` монет!"
-    elif is_win:
-        win = int(bet * 2)
-        coins += win
-        res_text = f"✨ Удача (x2)! Вы выиграли `+{win}` монет!"
+    # Декодирование значения анимации слотов ТГ (1-64)
+    v = val - 1
+    r1 = v % 4
+    r2 = (v // 4) % 4
+    r3 = (v // 16) % 4
+    
+    symbols = ["🍋", "🍇", "🔔", "7️⃣"]
+    s1, s2, s3 = symbols[r1], symbols[r2], symbols[r3]
+    
+    multiplier = 0
+    desc = ""
+    
+    if r1 == 3 and r2 == 3 and r3 == 3: # 777
+        multiplier = 10
+        desc = "👑 ДЖЕКПОТ (777)! Множитель x10!"
+    elif r1 == r2 and r2 == r3: # 3 одинаковых (но не 777)
+        multiplier = 5
+        desc = f"🌟 Три одинаковых ({s1}{s2}{s3})! Множитель x5!"
+    elif r1 == r2 or r2 == r3 or r1 == r3: # 2 одинаковых
+        multiplier = 2
+        desc = f"✨ Два одинаковых символа! Множитель x2!"
     else:
-        res_text = f"❌ Проигрыш `{bet}` монет."
+        multiplier = 0
+        desc = "❌ К сожалению, ничего не совпало."
+        
+    if multiplier > 0:
+        win = bet * multiplier
+        coins += win
+        profit = win - bet
+        res_text = f"🎰 Выпало: {s1} {s2} {s3}\n{desc} Вы выиграли `+{profit}` монет! 🎉"
+    else:
+        res_text = f"🎰 Выпало: {s1} {s2} {s3}\n{desc} Проигрыш `{bet}` монет. 💸"
         
     await asyncio.to_thread(lambda: supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute())
-    await message.answer(f"{res_text}\n💰 Баланс: `{coins}`", parse_mode=ParseMode.MARKDOWN)
+    await message.answer(f"{res_text}\n💰 Баланс: `{coins}` 🪙", parse_mode=ParseMode.MARKDOWN)
 
 @dp.message(Command("ball"))
 async def cmd_ball(message: types.Message, state: FSMContext):
@@ -1380,7 +1470,7 @@ async def admin_set_level(message: types.Message, state: FSMContext):
 async def process_message_xp(message: types.Message, state: FSMContext):
     if message.text.startswith("/"): return
     current_state = await state.get_state()
-    if current_state == FamilyState.waiting_for_child_name.state:
+    if current_state in [FamilyState.waiting_for_child_name.state, FamilyState.waiting_for_deposit_amount.state]:
         return
         
     uid = str(message.from_user.id)
