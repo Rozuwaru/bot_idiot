@@ -11,7 +11,7 @@ from aiogram.types import BotCommand, InlineKeyboardMarkup, InlineKeyboardButton
 from supabase import create_client, Client
 
 # --- НАСТРОЙКИ (КЛЮЧИ И ТОКЕНЫ) ---
-BOT_TOKEN = "8844907899:AAHWYb30wS3F4vnnzWdB8MrH_50TTqnBRpE"
+BOT_TOKEN = "8844907899:AAH6TPW93SufV2pRi0Ng9AHuEmqOEmqfLnI"
 SUPABASE_URL = "https://cbypocbgeevwqhjahchy.supabase.co"
 SUPABASE_KEY = "sb_publishable_zcF4S765sEmvXLIQegRkFg_1el4gZn_".strip()
 
