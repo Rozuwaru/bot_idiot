@@ -120,7 +120,6 @@ JOBS = {
     "4": {"name": "🐉 Охотник на чудовищ", "min_coins": 130, "max_coins": 260, "xp": 30},
 }
 
-# Отсортировано по возрастанию цены
 SHOP_EQUIPMENT = {
     "eq_1": {"name": "🪵 Деревянный меч", "price": 150, "duel_buff": 5, "desc": "Самодельное оружие. Дает +5% к победе в дуэли."},
     "eq_3": {"name": "🛡 Кожаная броня", "price": 250, "duel_buff": 10, "desc": "Защита торса. Дает +10% к победе в дуэли."},
@@ -172,7 +171,6 @@ SEX_DESCRIPTIONS = {
     "sex_chains": "🔗 Тяжелые стальные цепи надежно удерживают партнера намертво, превращая ночь в бескомпромиссное БДСМ-шоу."
 }
 
-# Отсортировано по возрастанию цены
 CARS_CAT = {
     "granta": {"name": "🚗 Lada Granta", "price": 50000, "base_speed": 40},
     "vesta": {"name": "🚗 Lada Vesta", "price": 120000, "base_speed": 60},
@@ -199,7 +197,6 @@ CAR_COLORS = [
     "💙 Синий", "💛 Желтый", "💚 Зеленый", "💜 Фиолетовый"
 ]
 
-# Отсортировано по возрастанию цены
 APARTMENTS_CAT = {
     "room": {"name": "🏢 Комната в общежитии", "price": 20000},
     "studio": {"name": "🏢 Студия на окраине", "price": 50000},
@@ -212,7 +209,6 @@ APARTMENTS_CAT = {
     "skyscraper": {"name": "🏢 Небоскреб целиком", "price": 7000000},
 }
 
-# Отсортировано по возрастанию цены
 HOUSES_CAT = {
     "dacha": {"name": "🏡 Дачный домик", "price": 200000},
     "townhouse": {"name": "🏡 Таунхаус за городом", "price": 450000},
@@ -696,6 +692,13 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 car = fam.get("car", "❌ Нет") if fam else "❌ Нет"
                 child_name = fam.get("child_name", "❌ Нет") if fam else "❌ Нет"
                 child_hunger = fam.get("child_hunger", 100) if fam else 100
+                
+                if fam and child_name and child_name != "❌ Нет":
+                    birth_time = int(fam.get("child_birth_time") or time.time())
+                    child_age = format_age(int(time.time()) - birth_time)
+                    child_info = f"{child_name} (Возраст: {child_age}, Голод: {child_hunger})"
+                else:
+                    child_info = "❌ Нет"
 
                 m_time = int(p.get("marriage_time") or time.time())
                 md = format_age(int(time.time()) - m_time)
@@ -708,7 +711,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                     f"🏡 Дом: `{house}`\n"
                     f"🏢 Квартира: `{apartment}`\n"
                     f"🚗 Машина семьи: `{car}`\n"
-                    f"👶 Ребенок: `{child_name}` (Голод: `{child_hunger}`)\n\n"
+                    f"👶 Ребенок: `{child_info}`\n\n"
                     f"👇 Управляйте своей семьей через кнопки ниже:"
                 )
                 kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -762,10 +765,8 @@ async def car_sell_action(callback: types.CallbackQuery):
     def _sell():
         supabase.table("users").update({"coins": new_coins}).eq("user_id", uid).execute()
         supabase.table("user_cars").delete().eq("id", car_id).execute()
-        # Если продали активную, выберем другую если есть
         left_res = supabase.table("user_cars").select("*").eq("user_id", uid).execute()
         if left_res.data:
-            # Сделаем первую активной
             supabase.table("user_cars").update({"is_active": True}).eq("id", left_res.data[0]["id"]).execute()
     await asyncio.to_thread(_sell)
 
@@ -863,7 +864,11 @@ async def send_support_reply(message: types.Message, state: FSMContext):
         await bot.send_message(chat_id=int(target_uid), text=user_msg, parse_mode=ParseMode.MARKDOWN)
         await message.answer(f"✅ Ответ успешно доставлен пользователю `{target_uid}`!", parse_mode=ParseMode.MARKDOWN)
     except Exception as e:
-        await message.answer(f"❌ Ошибка отправки пользователю `{target_uid}`: {e}")
+        await message.answer(
+            f"❌ Не удалось отправить сообщение пользователю `{target_uid}`.\n"
+            f"Возможная причина: пользователь еще не запускал бота (/start) в личных сообщениях.\nОшибка: {e}", 
+            parse_mode=ParseMode.MARKDOWN
+        )
 
 @dp.message(Command("reply"))
 async def cmd_reply(message: types.Message):
@@ -880,7 +885,11 @@ async def cmd_reply(message: types.Message):
         await bot.send_message(chat_id=int(target_uid), text=user_msg, parse_mode=ParseMode.MARKDOWN)
         await message.answer(f"✅ Ответ отправлен пользователю `{target_uid}`!", parse_mode=ParseMode.MARKDOWN)
     except Exception as e:
-        await message.answer(f"❌ Не удалось отправить сообщение: {e}")
+        await message.answer(
+            f"❌ Не удалось отправить сообщение пользователю `{target_uid}`.\n"
+            f"Возможная причина: пользователь еще не запускал бота (/start) в личных сообщениях.\nОшибка: {e}", 
+            parse_mode=ParseMode.MARKDOWN
+        )
 
 # --- ИНВЕНТАРЬ И ПРЕДМЕТЫ ---
 @dp.callback_query(F.data.startswith("use_item_"))
@@ -2105,8 +2114,9 @@ async def process_child_name(message: types.Message, state: FSMContext):
     uid = str(message.from_user.id)
     fam = await get_family(uid)
     if fam:
+        now = int(time.time())
         def _save_child():
-            supabase.table("families").update({"child_name": name, "child_hunger": 100}).eq("family_id", fam["family_id"]).execute()
+            supabase.table("families").update({"child_name": name, "child_hunger": 100, "child_birth_time": now}).eq("family_id", fam["family_id"]).execute()
         await asyncio.to_thread(_save_child)
     await state.clear()
     
@@ -2223,7 +2233,7 @@ async def process_withdraw_amount(message: types.Message, state: FSMContext):
         await message.answer("❌ Введите корректную сумму числом:")
         return
         
-    uid = str(message.from_user.id)
+    uid = str(callback.from_user.id)
     fam = await get_family(uid)
     if not fam or fam.get("budget", 0) < amount:
         await message.answer("❌ В семейном бюджете недостаточно средств!")
@@ -2257,18 +2267,18 @@ async def family_shop_menu(callback: types.CallbackQuery):
     text = (
         f"🛒 **СЕМЕЙНЫЙ МАГАЗИН ИМУЩЕСТВА**\n"
         f"💰 Бюджет семьи: `{fam.get('budget', 0):,}` 🪙\n\n"
-        f"Покупайте имущество в общую собственность за счет семейного бюджета (от дешевых к элитным):"
+        f"Покупайте имущество в общую собственность за счет семейного бюджета (строго по возрастанию цены):"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🏡 Коттедж (800k)", callback_data="fam_buy_house_cottage")],
+        [InlineKeyboardButton(text="🏢 Пентхаус (1.2M)", callback_data="fam_buy_apt_penthouse")],
         [InlineKeyboardButton(text="🏡 Дом Хай-тек (1.4M)", callback_data="fam_buy_house_modern")],
         [InlineKeyboardButton(text="🏡 Вилла (2M)", callback_data="fam_buy_house_villa")],
+        [InlineKeyboardButton(text="🏢 Двухуровневые (2.5M)", callback_data="fam_buy_apt_duplex")],
         [InlineKeyboardButton(text="🏰 Поместье (5M)", callback_data="fam_buy_house_estate")],
+        [InlineKeyboardButton(text="🏎 Supercar (6M)", callback_data="fam_buy_car_chiron")],
         [InlineKeyboardButton(text="🏰 Замок (7.5M)", callback_data="fam_buy_house_castle")],
         [InlineKeyboardButton(text="👑 Особняк (10M)", callback_data="fam_buy_house_palace")],
-        [InlineKeyboardButton(text="🏢 Пентхаус (1.2M)", callback_data="fam_buy_apt_penthouse")],
-        [InlineKeyboardButton(text="🏢 Двухуровневые (2.5M)", callback_data="fam_buy_apt_duplex")],
-        [InlineKeyboardButton(text="🏎 Supercar (6M)", callback_data="fam_buy_car_chiron")],
         [InlineKeyboardButton(text="🏎 Koenigsegg (14M)", callback_data="fam_buy_car_koenigsegg")],
         [InlineKeyboardButton(text="🍖 Еда для семьи (+50 еды = 50k)", callback_data="fam_buy_food")],
         [InlineKeyboardButton(text="🔙 В меню семьи", callback_data=f"menu_marry_{uid}")]
