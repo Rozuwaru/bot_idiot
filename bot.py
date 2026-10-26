@@ -109,6 +109,49 @@ LEVELS = {
     67: {"xp": 61875, "title": "👑 Абсолютная Легенда"},
 }
 
+BUSINESSES_CAT = {
+    "plant": {
+        "name": "🏭 Завод",
+        "price": 1500000,
+        "base_profit": 25000,
+        "upgrade_name": "🛠 Купить новый ЧПУ станок",
+        "upgrade_price": 500000,
+        "raw_cost_per_unit": 200
+    },
+    "oil": {
+        "name": "🛢 Нефтяная вышка",
+        "price": 3500000,
+        "base_profit": 65000,
+        "upgrade_name": "⚙️ Буровой бур нового поколения",
+        "upgrade_price": 1200000,
+        "raw_cost_per_unit": 450
+    },
+    "shop": {
+        "name": "🏪 Супермаркет",
+        "price": 800000,
+        "base_profit": 12000,
+        "upgrade_name": "💳 Установка касс самообслуживания",
+        "upgrade_price": 250000,
+        "raw_cost_per_unit": 100
+    },
+    "it": {
+        "name": "💻 IT-компания",
+        "price": 6000000,
+        "base_profit": 120000,
+        "upgrade_name": "🖥 Серверная стойка с RTX",
+        "upgrade_price": 2000000,
+        "raw_cost_per_unit": 800
+    },
+    "farm": {
+        "name": "🌾 Агроферма",
+        "price": 400000,
+        "base_profit": 6000,
+        "upgrade_name": "🚜 Автоматический трактор",
+        "upgrade_price": 150000,
+        "raw_cost_per_unit": 50
+    }
+}
+
 WORK_COOLDOWNS = {}
 INTIMATE_COOLDOWNS = {}
 PENDING_MARRIAGES = {}
@@ -377,6 +420,64 @@ async def get_family(uid: str):
         logging.error(f"Error fetching family: {e}")
     return None
 
+# --- РАСЧЕТ ДОХОДА БИЗНЕСОВ ---
+async def update_businesses_for_user(uid: str):
+    now = int(time.time())
+    def _get_b():
+        return supabase.table("user_businesses").select("*").eq("user_id", uid).execute()
+    res = await asyncio.to_thread(_get_b)
+    if not res.data:
+        return
+
+    for biz in res.data:
+        last_time = int(biz.get("last_update_time") or now)
+        if last_time == 0:
+            last_time = now
+            supabase.table("user_businesses").update({"last_update_time": now}).eq("id", biz["id"]).execute()
+            continue
+
+        hours_passed = (now - last_time) / 3600.0
+        if hours_passed < 1.0:
+            continue
+
+        workers = biz.get("workers", 0)
+        max_workers = biz.get("max_workers", 20)
+        raw = biz.get("raw_material", 0)
+        max_raw = biz.get("max_raw_material", 100)
+
+        # 1. Проверка сырья (если 0 сырья — бизнес простаивает)
+        if raw <= 0:
+            supabase.table("user_businesses").update({"last_update_time": now}).eq("id", biz["id"]).execute()
+            continue
+
+        # 2. Проверка работников (< 50% — бизнес не работает)
+        worker_ratio = workers / max_workers if max_workers > 0 else 0
+        if worker_ratio < 0.5:
+            supabase.table("user_businesses").update({"last_update_time": now}).eq("id", biz["id"]).execute()
+            continue
+
+        # Коэффициент прибыльности от работников (если больше 50%, пропорционально числу)
+        profit_multiplier = worker_ratio
+
+        # Расчет начислений за прошедшие часы
+        full_hours = int(hours_passed)
+        earned = int(biz["profit_per_hour"] * full_hours * profit_multiplier)
+        
+        # Списание сырья (по 10% сырья за каждый отработанный час)
+        raw_consumed = full_hours * int(max_raw * 0.1)
+        new_raw = max(0, raw - raw_consumed)
+
+        new_balance = biz["balance_profit"] + earned
+        new_last_time = last_time + (full_hours * 3600)
+
+        def _upd_biz():
+            supabase.table("user_businesses").update({
+                "balance_profit": new_balance,
+                "raw_material": new_raw,
+                "last_update_time": new_last_time
+            }).eq("id", biz["id"]).execute()
+        await asyncio.to_thread(_upd_biz)
+
 def get_main_keyboard(user_id: int):
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="👤 Профиль", callback_data=f"menu_profile_{user_id}"),
@@ -385,13 +486,14 @@ def get_main_keyboard(user_id: int):
          InlineKeyboardButton(text="🏎 Гараж и Авто", callback_data=f"menu_garage_{user_id}")],
         [InlineKeyboardButton(text="🛒 Магазины", callback_data=f"menu_shops_{user_id}"),
          InlineKeyboardButton(text="🍑 Секс-шоп", callback_data=f"menu_sexshop_{user_id}")],
-        [InlineKeyboardButton(text="🏠 Имущество", callback_data=f"menu_personal_{user_id}"),
-         InlineKeyboardButton(text="🏆 Топ игроков", callback_data=f"menu_top_{user_id}")],
-        [InlineKeyboardButton(text="💼 Биржа труда", callback_data=f"menu_work_{user_id}"),
-         InlineKeyboardButton(text="🏁 Уличные гонки", callback_data=f"menu_race_{user_id}")],
-        [InlineKeyboardButton(text="🎰 Казино и игры", callback_data=f"menu_casino_{user_id}"),
-         InlineKeyboardButton(text="💍 Отношения и Семья", callback_data=f"menu_marry_{user_id}")],
-        [InlineKeyboardButton(text="🆘 Техподдержка", callback_data=f"menu_support_{user_id}")]
+        [InlineKeyboardButton(text="🏢 Бизнесы", callback_data=f"menu_biz_{user_id}"),
+         InlineKeyboardButton(text="🏠 Имущество", callback_data=f"menu_personal_{user_id}")],
+        [InlineKeyboardButton(text="🏆 Топ игроков", callback_data=f"menu_top_{user_id}"),
+         InlineKeyboardButton(text="💼 Биржа труда", callback_data=f"menu_work_{user_id}")],
+        [InlineKeyboardButton(text="🏁 Уличные гонки", callback_data=f"menu_race_{user_id}"),
+         InlineKeyboardButton(text="🎰 Казино и игры", callback_data=f"menu_casino_{user_id}")],
+        [InlineKeyboardButton(text="💍 Отношения и Семья", callback_data=f"menu_marry_{user_id}"),
+         InlineKeyboardButton(text="🆘 Техподдержка", callback_data=f"menu_support_{user_id}")]
     ])
 
 @dp.message(Command(commands=["start", "help", "menu"]))
@@ -410,7 +512,7 @@ async def cmd_start(message: types.Message, state: FSMContext):
     text = (
         f"{header}\n"
         "🎮 Добро пожаловать в RPG бот!\n"
-        "Используйте кнопки ниже для управления персонажем, оружейной, казино, тюнинга и гонок."
+        "Используйте кнопки ниже для управления персонажем, бизнесами, оружейной, казино и гонками."
     )
     await message.answer(text, reply_markup=get_main_keyboard(message.from_user.id), parse_mode=ParseMode.MARKDOWN)
 
@@ -446,7 +548,52 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
         uid = str(callback.from_user.id)
         header = await get_menu_header(callback.from_user, p)
         
-        if action == "profile":
+        if action == "biz":
+            await update_businesses_for_user(uid)
+            def _get_biz():
+                return supabase.table("user_businesses").select("*").eq("user_id", uid).execute()
+            res = await asyncio.to_thread(_get_biz)
+            user_businesses = res.data if res.data else []
+
+            text = f"{header}\n🏢 **ВАШИ БИЗНЕСЫ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
+            buttons = []
+
+            if not user_businesses:
+                text += "У вас пока нет ни одного бизнеса. Приобретите их на бирже предприятий ниже!"
+            else:
+                for b in user_businesses:
+                    workers = b["workers"]
+                    max_w = b["max_workers"]
+                    raw = b["raw_material"]
+                    max_r = b["max_raw_material"]
+                    profit_h = b["profit_per_hour"]
+                    accumulated = b["balance_profit"]
+                    
+                    w_status = f"{workers}/{max_w}"
+                    if workers < (max_w * 0.5):
+                        w_status += " ⚠️ (Мало работников, простой!)"
+                    
+                    r_status = f"{raw}/{max_r}"
+                    if raw <= 0:
+                        r_status += " ❌ (Нет сырья!)"
+
+                    text += f"🔹 **{b['business_name']}** (Ур. {b['level']})\n"
+                    text += f"   💰 Прибыль: `{profit_h:,}` 🪙/час | Накоплено: `+{accumulated:,}` 🪙\n"
+                    text += f"   👷 Работники: {w_status} | 📦 Сырье: {r_status}\n\n"
+                    
+                    buttons.append([InlineKeyboardButton(text=f"⚙️ Управление: {b['business_name']}", callback_data=f"biz_manage_{b['id']}_{uid}")])
+
+            buttons.append([InlineKeyboardButton(text="📈 Биржа предприятий (Купить бизнес)", callback_data=f"biz_shop_list_{uid}")])
+            buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")] )
+            
+            kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+            try:
+                await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+            except TelegramBadRequest:
+                await callback.answer()
+            return
+
+        elif action == "profile":
             lvl = p.get('level', 1)
             title = LEVELS.get(lvl, {}).get("title", "Воин")
             pid, pname = p.get("partner_id"), p.get("partner_name")
@@ -771,6 +918,294 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
     except Exception as e:
         logging.error(f"Error in callback_main_menu: {e}")
         await callback.answer("❌ Произошла ошибка!", show_alert=True)
+
+# --- МЕНЮ УПРАВЛЕНИЯ БИЗНЕСОМ ---
+@dp.callback_query(F.data.startswith("biz_manage_"))
+async def biz_manage_menu(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    biz_id = int(parts[2])
+    owner_id = parts[3] if len(parts) > 3 else None
+
+    if owner_id and str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
+    uid = str(callback.from_user.id)
+    await update_businesses_for_user(uid)
+
+    def _get_b():
+        return supabase.table("user_businesses").select("*").eq("id", biz_id).eq("user_id", uid).execute()
+    res = await asyncio.to_thread(_get_b)
+    if not res.data:
+        await callback.answer("❌ Бизнес не найден!", show_alert=True)
+        return
+
+    b = res.data[0]
+    p = await get_profile(callback.from_user)
+    header = await get_menu_header(callback.from_user, p)
+
+    b_type = b["business_type"]
+    b_cat = BUSINESSES_CAT.get(b_type, {})
+    
+    upgrade_cost = b_cat.get("upgrade_price", 500000) * b["level"]
+    raw_buy_cost = b_cat.get("raw_cost_per_unit", 100) * 10 # покупка порции из 10 ед. сырья
+    hire_cost = 20000 # стоимость найма 5 работников
+
+    workers = b["workers"]
+    max_w = b["max_workers"]
+    raw = b["raw_material"]
+    max_r = b["max_raw_material"]
+
+    status_text = "🟢 Работает"
+    if raw <= 0:
+        status_text = "🔴 Остановлен (Нет сырья!)"
+    elif (workers / max_w) < 0.5:
+        status_text = "🟡 Простой (Мало работников < 50%)!"
+
+    text = (
+        f"{header}\n"
+        f"🏢 **УПРАВЛЕНИЕ: {b['business_name']}** (Ур. {b['level']})\n"
+        f"📊 Статус: {status_text}\n"
+        f"💰 Доход: `{b['profit_per_hour']:,}` 🪙/час\n"
+        f"💵 Накопленная прибыль: `+{b['balance_profit']:,}` 🪙\n"
+        f"👷 Работники: `{workers} / {max_w}`\n"
+        f"📦 Сырье: `{raw} / {max_r}`\n\n"
+        f"👇 Доступные действия:"
+    )
+
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text=f"📥 Снять прибыль (+{b['balance_profit']:,} 🪙)", callback_data=f"biz_withdraw_{biz_id}_{uid}")],
+        [InlineKeyboardButton(text=f"📦 Купить сырье (+10 ед. за {raw_buy_cost:,} 🪙)", callback_data=f"biz_buy_raw_{biz_id}_{uid}")],
+        [InlineKeyboardButton(text=f"👷 Нанять работников (+5 за {hire_cost:,} 🪙)", callback_data=f"biz_hire_{biz_id}_{uid}")],
+        [InlineKeyboardButton(text=f"⭐ {b_cat.get('upgrade_name', 'Улучшить')} ({upgrade_cost:,} 🪙)", callback_data=f"biz_upgrade_{biz_id}_{uid}")],
+        [InlineKeyboardButton(text="🔙 Назад к списку бизнесов", callback_data=f"menu_biz_{uid}")]
+    ])
+
+    try:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+    except TelegramBadRequest:
+        await callback.answer()
+
+@dp.callback_query(F.data.startswith("biz_shop_list_"))
+async def biz_shop_list(callback: types.CallbackQuery):
+    uid = callback.data.split("_")[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
+    p = await get_profile(callback.from_user)
+    header = await get_menu_header(callback.from_user, p)
+    
+    text = f"{header}\n📈 **БИРЖА ПРЕДПРИЯТИЙ** (Баланс: `{p.get('coins', 0):,}` 🪙):\nВыберите бизнес для покупки:\n\n"
+    buttons = []
+
+    for k, biz in BUSINESSES_CAT.items():
+        text += f"• **{biz['name']}** — `{biz['price']:,}` 🪙 (Доход: `{biz['base_profit']:,}` 🪙/час)\n"
+        buttons.append([InlineKeyboardButton(text=f"Купить: {biz['name']} ({biz['price']:,} 🪙)", callback_data=f"buy_biz_{k}_{uid}")])
+
+    buttons.append([InlineKeyboardButton(text="🔙 К моим бизнесам", callback_data=f"menu_biz_{uid}")])
+    try:
+        await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+    except TelegramBadRequest:
+        await callback.answer()
+
+@dp.callback_query(F.data.startswith("buy_biz_"))
+async def buy_business_action(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    biz_key = parts[2]
+    uid = parts[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
+    biz_info = BUSINESSES_CAT.get(biz_key)
+    if not biz_info:
+        await callback.answer("❌ Бизнес не найден!", show_alert=True)
+        return
+
+    p = await get_profile(callback.from_user)
+    if p.get("coins", 0) < biz_info["price"]:
+        await callback.answer(f"❌ Недостаточно монет! Нужно {biz_info['price']:,} 🪙", show_alert=True)
+        return
+
+    new_coins = p["coins"] - biz_info["price"]
+    now = int(time.time())
+
+    def _buy():
+        supabase.table("users").update({"coins": new_coins}).eq("user_id", uid).execute()
+        supabase.table("user_businesses").insert({
+            "user_id": uid,
+            "business_type": biz_key,
+            "business_name": biz_info["name"],
+            "level": 1,
+            "profit_per_hour": biz_info["base_profit"],
+            "raw_material": 100,
+            "max_raw_material": 100,
+            "workers": 10,
+            "max_workers": 20,
+            "balance_profit": 0,
+            "last_update_time": now
+        }).execute()
+    await asyncio.to_thread(_buy)
+
+    await callback.answer(f"🎉 Вы успешно приобрели «{biz_info['name']}»!", show_alert=True)
+    callback.data = f"menu_biz_{uid}"
+    await callback_main_menu(callback, None)
+
+@dp.callback_query(F.data.startswith("biz_withdraw_"))
+async def biz_withdraw(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    biz_id = int(parts[2])
+    uid = parts[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
+    await update_businesses_for_user(uid)
+    def _get_b():
+        return supabase.table("user_businesses").select("*").eq("id", biz_id).eq("user_id", uid).execute()
+    res = await asyncio.to_thread(_get_b)
+    if not res.data:
+        await callback.answer("❌ Бизнес не найден!", show_alert=True)
+        return
+
+    b = res.data[0]
+    profit = b["balance_profit"]
+    if profit <= 0:
+        await callback.answer("❌ На балансе бизнеса пока нет прибыли для снятия!", show_alert=True)
+        return
+
+    p = await get_profile(callback.from_user)
+    new_coins = p.get("coins", 0) + profit
+
+    def _withdraw():
+        supabase.table("users").update({"coins": new_coins}).eq("user_id", uid).execute()
+        supabase.table("user_businesses").update({"balance_profit": 0}).eq("id", biz_id).execute()
+    await asyncio.to_thread(_withdraw)
+
+    await callback.answer(f"✅ Успешно снято `+{profit:,}` 🪙 на ваш баланс!", show_alert=True)
+    callback.data = f"biz_manage_{biz_id}_{uid}"
+    await biz_manage_menu(callback)
+
+@dp.callback_query(F.data.startswith("biz_buy_raw_"))
+async def biz_buy_raw(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    biz_id = int(parts[2])
+    uid = parts[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
+    def _get_b():
+        return supabase.table("user_businesses").select("*").eq("id", biz_id).eq("user_id", uid).execute()
+    res = await asyncio.to_thread(_get_b)
+    if not res.data:
+        await callback.answer("❌ Бизнес не найден!", show_alert=True)
+        return
+    b = res.data[0]
+    b_cat = BUSINESSES_CAT.get(b["business_type"], {})
+    cost = b_cat.get("raw_cost_per_unit", 100) * 10
+
+    p = await get_profile(callback.from_user)
+    if p.get("coins", 0) < cost:
+        await callback.answer(f"❌ Недостаточно монет! Нужно {cost:,} 🪙", show_alert=True)
+        return
+
+    new_raw = min(b["max_raw_material"], b["raw_material"] + 10)
+    new_coins = p["coins"] - cost
+
+    def _buy_r():
+        supabase.table("users").update({"coins": new_coins}).eq("user_id", uid).execute()
+        supabase.table("user_businesses").update({"raw_material": new_raw}).eq("id", biz_id).execute()
+    await asyncio.to_thread(_buy_r)
+
+    await callback.answer("✅ Сырье успешно закуплено (+10 ед.)!", show_alert=True)
+    callback.data = f"biz_manage_{biz_id}_{uid}"
+    await biz_manage_menu(callback)
+
+@dp.callback_query(F.data.startswith("biz_hire_"))
+async def biz_hire(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    biz_id = int(parts[2])
+    uid = parts[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
+    def _get_b():
+        return supabase.table("user_businesses").select("*").eq("id", biz_id).eq("user_id", uid).execute()
+    res = await asyncio.to_thread(_get_b)
+    if not res.data:
+        await callback.answer("❌ Бизнес не найден!", show_alert=True)
+        return
+    b = res.data[0]
+    cost = 20000
+
+    if b["workers"] >= b["max_workers"]:
+        await callback.answer("❌ Штат работников полностью укомплектован!", show_alert=True)
+        return
+
+    p = await get_profile(callback.from_user)
+    if p.get("coins", 0) < cost:
+        await callback.answer(f"❌ Недостаточно монет для найма! Нужно {cost:,} 🪙", show_alert=True)
+        return
+
+    new_workers = min(b["max_workers"], b["workers"] + 5)
+    new_coins = p["coins"] - cost
+
+    def _h():
+        supabase.table("users").update({"coins": new_coins}).eq("user_id", uid).execute()
+        supabase.table("user_businesses").update({"workers": new_workers}).eq("id", biz_id).execute()
+    await asyncio.to_thread(_h)
+
+    await callback.answer("✅ Нанято +5 новых работников!", show_alert=True)
+    callback.data = f"biz_manage_{biz_id}_{uid}"
+    await biz_manage_menu(callback)
+
+@dp.callback_query(F.data.startswith("biz_upgrade_"))
+async def biz_upgrade(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    biz_id = int(parts[2])
+    uid = parts[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
+    def _get_b():
+        return supabase.table("user_businesses").select("*").eq("id", biz_id).eq("user_id", uid).execute()
+    res = await asyncio.to_thread(_get_b)
+    if not res.data:
+        await callback.answer("❌ Бизнес не найден!", show_alert=True)
+        return
+    b = res.data[0]
+    b_cat = BUSINESSES_CAT.get(b["business_type"], {})
+    
+    upgrade_cost = b_cat.get("upgrade_price", 500000) * b["level"]
+    p = await get_profile(callback.from_user)
+
+    if p.get("coins", 0) < upgrade_cost:
+        await callback.answer(f"❌ Недостаточно монет для улучшения! Нужно {upgrade_cost:,} 🪙", show_alert=True)
+        return
+
+    new_level = b["level"] + 1
+    new_profit = int(b["profit_per_hour"] * 1.4) # +40% к доходу с каждым уровнем
+    new_max_w = b["max_workers"] + 10
+    new_max_r = b["max_raw_material"] + 50
+    new_coins = p["coins"] - upgrade_cost
+
+    def _up():
+        supabase.table("users").update({"coins": new_coins}).eq("user_id", uid).execute()
+        supabase.table("user_businesses").update({
+            "level": new_level,
+            "profit_per_hour": new_profit,
+            "max_workers": new_max_w,
+            "max_raw_material": new_max_r
+        }).eq("id", biz_id).execute()
+    await asyncio.to_thread(_up)
+
+    await callback.answer(f"🎉 Успешное улучшение! Бизнес переведен на уровень {new_level}!", show_alert=True)
+    callback.data = f"biz_manage_{biz_id}_{uid}"
+    await biz_manage_menu(callback)
 
 # --- ПРОДАЖА МАШИНЫ ---
 @dp.callback_query(F.data.startswith("car_sell_"))
