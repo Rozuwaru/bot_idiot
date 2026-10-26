@@ -120,37 +120,44 @@ JOBS = {
     "4": {"name": "🐉 Охотник на чудовищ", "min_coins": 130, "max_coins": 260, "xp": 30},
 }
 
+# Отсортировано по возрастанию цены
 SHOP_EQUIPMENT = {
     "eq_1": {"name": "🪵 Деревянный меч", "price": 150, "duel_buff": 5, "desc": "Самодельное оружие. Дает +5% к победе в дуэли."},
-    "eq_2": {"name": "⚔️ Железный меч", "price": 350, "duel_buff": 12, "desc": "Надежный клинок. Дает +12% к победе в дуэли."},
     "eq_3": {"name": "🛡 Кожаная броня", "price": 250, "duel_buff": 10, "desc": "Защита торса. Дает +10% к победе в дуэли."},
-    "eq_4": {"name": "🛡 Мифриловый щит", "price": 1800, "duel_buff": 25, "desc": "Несокрушимая защита. Дает +25% к победе в дуэли."},
+    "eq_2": {"name": "⚔️ Железный меч", "price": 350, "duel_buff": 12, "desc": "Надежный клинок. Дает +12% к победе в дуэли."},
     "eq_5": {"name": "💍 Руническое кольцо", "price": 600, "duel_buff": 8, "desc": "Артефакт магов. Дает +8% к победе в дуэли."},
     "eq_6": {"name": "🔥 Пламенный клинок", "price": 1400, "duel_buff": 30, "desc": "Оружие дракоборцев. Дает +30% к победе в дуэли."},
+    "eq_4": {"name": "🛡 Мифриловый щит", "price": 1800, "duel_buff": 25, "desc": "Несокрушимая защита. Дает +25% к победе в дуэли."},
+    "eq_8": {"name": "⚡ Электрический посох", "price": 3200, "duel_buff": 40, "desc": "Бьет током врагов. Дает +40% к победе."},
     "eq_7": {"name": "👑 Корона победителя", "price": 5000, "duel_buff": 50, "desc": "Знак истинной власти. Дает +50% к победе в дуэли."},
+    "eq_9": {"name": "💎 Клинки вечности", "price": 9500, "duel_buff": 70, "desc": "Оружие богов арены. Дает +70% к победе."},
 }
 
 SHOP_CONSUMABLES = {
-    "beer_okhota": {"name": "🍺 Охота Крепкое", "price": 120, "desc": "Легендарное пиво. Мут на 2 мин + рандом монет."},
-    "energy": {"name": "⚡ Энергетик", "price": 90, "desc": "Бодрящий напиток. Дает +50 XP."},
-    "pizza": {"name": "🍔 Пицца", "price": 80, "desc": "Горячая сытная еда. Дает +30 XP и +20 монет."},
-    "vodka": {"name": "🥃 Паленая водка", "price": 200, "desc": "Жесткий напиток. Мут на 5 мин и риск потерять/удвоить монеты."},
-    "pc": {"name": "💻 Игровой ПК", "price": 3500, "desc": "Топовая сборка с RTX. Дает +150 респекта."},
-    "cigars": {"name": "🚬 Сигареты", "price": 100, "desc": "Добавляет авторитета (+5 респекта) и никотиновую зависимость."},
-    "hookah": {"name": "💨 Кальян", "price": 450, "desc": "Ароматный дым. Дает +80 XP."},
     "chips": {"name": "🍟 Чипсы с сыром", "price": 50, "desc": "Вкусный снек. Дает +15 XP."},
+    "pizza": {"name": "🍔 Пицца", "price": 80, "desc": "Горячая сытная еда. Дает +30 XP и +20 монет."},
+    "energy": {"name": "⚡ Энергетик", "price": 90, "desc": "Бодрящий напиток. Дает +50 XP."},
+    "cigars": {"name": "🚬 Сигареты", "price": 100, "desc": "Добавляет авторитета (+5 респекта) и никотиновую зависимость."},
+    "beer_okhota": {"name": "🍺 Охота Крепкое", "price": 120, "desc": "Легендарное пиво. Мут на 2 мин + рандом монет."},
+    "vodka": {"name": "🥃 Паленая водка", "price": 200, "desc": "Жесткий напиток. Мут на 5 мин и риск потерять/удвоить монеты."},
+    "hookah": {"name": "💨 Кальян", "price": 450, "desc": "Ароматный дым. Дает +80 XP."},
     "whiskey": {"name": "🥃 Элитный Виски", "price": 900, "desc": "Дорогой алкоголь. Дает +40 респекта."},
     "chair": {"name": "💺 Геймерское кресло", "price": 2200, "desc": "Эргономика. Дает +100 респекта."},
+    "pc": {"name": "💻 Игровой ПК", "price": 3500, "desc": "Топовая сборка с RTX. Дает +150 респекта."},
+    "vr": {"name": "🥽 VR-шлем топовый", "price": 6000, "desc": "Погружение в виртуальную реальность (+220 респекта)."},
+    "server": {"name": "🖥 Домашний сервер", "price": 12000, "desc": "Майнинг крипты и хостинг (+400 респекта)."},
 }
 
 SEX_SHOP = {
-    "sex_vibe": {"name": "🟣 Вибратор", "price": 800, "desc": "Мощная игрушка для ярких эмоций."},
+    "sex_oil": {"name": "🧴 Массажное масло", "price": 400, "desc": "Для безумно нежных касаний."},
     "sex_gag": {"name": "🔴 Кожаный кляп", "price": 500, "desc": "Чтобы стоны не мешали соседям."},
+    "sex_mask": {"name": "🎭 Кружевная маска", "price": 600, "desc": "Атмосфера тайного греха."},
     "sex_cuff": {"name": "⛓️ Кожаные наручники", "price": 700, "desc": "Полный контроль над партнером."},
+    "sex_vibe": {"name": "🟣 Вибратор", "price": 800, "desc": "Мощная игрушка для ярких эмоций."},
     "sex_maid": {"name": "👗 Костюм горничной", "price": 1000, "desc": "Соблазнительный наряд."},
     "sex_whip": {"name": "🖤 Кожаный хлыст", "price": 1200, "desc": "Добавляет перчинку в отношения."},
-    "sex_oil": {"name": "🧴 Массажное масло", "price": 400, "desc": "Для безумно нежных касаний."},
-    "sex_mask": {"name": "🎭 Кружевная маска", "price": 600, "desc": "Атмосфера тайного греха."},
+    "sex_dildo": {"name": "🍆 Неоновый фаллоимитатор", "price": 1900, "desc": "Светящийся монстр для страстных ночей."},
+    "sex_chains": {"name": "🔗 Стальные цепи БДСМ", "price": 3400, "desc": "Максимальная фиксация и жесткость."},
 }
 
 SEX_DESCRIPTIONS = {
@@ -160,9 +167,12 @@ SEX_DESCRIPTIONS = {
     "sex_maid": "👗 Облачив партнера в соблазнительный костюм горничной с кружевами, вы срываете наряд в первые же секунды, погружаясь в неистовую, развратную плотскую утеху.",
     "sex_whip": "🖤 Резкие и хлесткие удары кожаным хлыстом оставляют алые следы на разгоряченной коже, доводя уровень адреналина и животной страсти до абсолютного пика.",
     "sex_oil": "🧴 Щупая и втирая теплое массажное масло в каждый сантиметр обнаженных тел, вы делаете движения максимально плавными, скользкими и безумно возбуждающими.",
-    "sex_mask": "🎭 Надев на лицо кружевную маску, партнер отключает все мысли и полностью отдается вашей власти, принимая самые смелые и грязные фантазии в полумраке."
+    "sex_mask": "🎭 Надев на лицо кружевную маску, партнер отключает все мысли и полностью отдается вашей власти, принимая самые смелые и грязные фантазии в полумраке.",
+    "sex_dildo": "🍆 Неоновый фаллоимитатор ярко пульсирует в темноте, задавая бешеный ритм глубоким проникновениям под дикие крики восторга.",
+    "sex_chains": "🔗 Тяжелые стальные цепи надежно удерживают партнера намертво, превращая ночь в бескомпромиссное БДСМ-шоу."
 }
 
+# Отсортировано по возрастанию цены
 CARS_CAT = {
     "granta": {"name": "🚗 Lada Granta", "price": 50000, "base_speed": 40},
     "vesta": {"name": "🚗 Lada Vesta", "price": 120000, "base_speed": 60},
@@ -177,8 +187,10 @@ CARS_CAT = {
     "911": {"name": "🏎 Porsche 911 Turbo S", "price": 2200000, "base_speed": 250},
     "huracan": {"name": "🏎 Lamborghini Huracan", "price": 3000000, "base_speed": 285},
     "488": {"name": "🏎 Ferrari 488 Spider", "price": 3800000, "base_speed": 310},
+    "db11": {"name": "🏎 Aston Martin DB11", "price": 4600000, "base_speed": 330},
     "chiron": {"name": "🏎 Bugatti Chiron", "price": 6000000, "base_speed": 360},
     "phantom": {"name": "👑 Rolls-Royce Phantom", "price": 8000000, "base_speed": 340},
+    "koenigsegg": {"name": "🏎 Koenigsegg Jesko", "price": 14000000, "base_speed": 410},
     "m5f90": {"name": "🏎 BMW M5 F90", "price": 0, "base_speed": 340, "admin_only": True},
 }
 
@@ -187,38 +199,55 @@ CAR_COLORS = [
     "💙 Синий", "💛 Желтый", "💚 Зеленый", "💜 Фиолетовый"
 ]
 
+# Отсортировано по возрастанию цены
 APARTMENTS_CAT = {
+    "room": {"name": "🏢 Комната в общежитии", "price": 20000},
     "studio": {"name": "🏢 Студия на окраине", "price": 50000},
     "1k": {"name": "🏢 1-комнатная квартира", "price": 120000},
+    "2k": {"name": "🏢 2-комнатная квартира", "price": 220000},
     "3k": {"name": "🏢 3-комнатная в центре", "price": 350000},
+    "loft": {"name": "🏢 Лофт в арт-квартале", "price": 700000},
     "penthouse": {"name": "🏢 Элитный пентхаус", "price": 1200000},
     "duplex": {"name": "🏢 Двухуровневые апартаменты", "price": 2500000},
+    "skyscraper": {"name": "🏢 Небоскреб целиком", "price": 7000000},
 }
 
+# Отсортировано по возрастанию цены
 HOUSES_CAT = {
     "dacha": {"name": "🏡 Дачный домик", "price": 200000},
+    "townhouse": {"name": "🏡 Таунхаус за городом", "price": 450000},
     "cottage": {"name": "🏡 Загородный коттедж", "price": 800000},
+    "modern": {"name": "🏡 Дом в стиле Хай-тек", "price": 1400000},
     "villa": {"name": "🏡 Элитная вилла с бассейном", "price": 2000000},
     "estate": {"name": "🏰 Поместье с парком", "price": 5000000},
+    "castle": {"name": "🏰 Средневековый замок", "price": 7500000},
     "palace": {"name": "👑 Королевский особняк", "price": 10000000},
+    "island": {"name": "🏝 Частный тропический остров", "price": 25000000},
 }
 
 FAMILY_HOUSES = {
     "cottage": {"name": "🏡 Загородный коттедж", "price": 800000},
+    "modern": {"name": "🏡 Дом в стиле Хай-тек", "price": 1400000},
     "villa": {"name": "🏡 Элитная вилла с бассейном", "price": 2000000},
     "estate": {"name": "🏰 Поместье с парком", "price": 5000000},
+    "castle": {"name": "🏰 Средневековый замок", "price": 7500000},
+    "palace": {"name": "👑 Королевский особняк", "price": 10000000},
 }
 
 FAMILY_APTS = {
     "1k": {"name": "🏢 1-комнатная квартира", "price": 120000},
     "3k": {"name": "🏢 3-комнатная в центре", "price": 350000},
     "penthouse": {"name": "🏢 Элитный пентхаус", "price": 1200000},
+    "duplex": {"name": "🏢 Двухуровневые апартаменты", "price": 2500000},
+    "skyscraper": {"name": "🏢 Небоскреб целиком", "price": 7000000},
 }
 
 FAMILY_CARS = {
     "camry": {"name": "🚗 Toyota Camry", "price": 380000},
     "rs6": {"name": "🏎 Audi RS6 Avant", "price": 1250000},
+    "db11": {"name": "🏎 Aston Martin DB11", "price": 4600000},
     "chiron": {"name": "🏎 Bugatti Chiron", "price": 6000000},
+    "koenigsegg": {"name": "🏎 Koenigsegg Jesko", "price": 14000000},
 }
 
 def format_age(seconds: int) -> str:
@@ -529,11 +558,14 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             else:
                 for car in user_cars:
                     active_mark = "🟢 [АКТИВНА]" if car['is_active'] else ""
+                    car_price = CARS_CAT.get(car['car_key'], {"price": 100000}).get("price", 100000)
+                    sell_price = int(car_price * 0.5)
                     text += f"🚗 **{car['car_name']}** | {car['color']} {active_mark}\n"
                     text += f"   └ Двиг: Ур.{car['engine_lvl']} | Турбо: Ур.{car['turbo_lvl']} | Управл: Ур.{car['handling_lvl']}\n\n"
                     if not car['is_active']:
                         buttons.append([InlineKeyboardButton(text=f"🔑 Сесть за руль: {car['car_name']}", callback_data=f"car_activate_{car['id']}")])
-                    buttons.append([InlineKeyboardButton(text=f"⚙️ Тюнинг / Покраска: {car['car_name']}", callback_data=f"car_tune_{car['id']}")])
+                    buttons.append([InlineKeyboardButton(text=f"⚙️ Тюнинг: {car['car_name']}", callback_data=f"car_tune_{car['id']}")])
+                    buttons.append([InlineKeyboardButton(text=f"🗑 Продать за {sell_price:,} 🪙", callback_data=f"car_sell_{car['id']}")])
 
             buttons.append([InlineKeyboardButton(text="🛍 Автосалон (Купить авто)", callback_data=f"shop_cars_list_{uid}")])
             buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")])
@@ -708,6 +740,39 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
         logging.error(f"Error in callback_main_menu: {e}")
         await callback.answer("❌ Произошла ошибка!", show_alert=True)
 
+# --- ПРОДАЖА МАШИНЫ ---
+@dp.callback_query(F.data.startswith("car_sell_"))
+async def car_sell_action(callback: types.CallbackQuery):
+    car_id = int(callback.data.split("_")[2])
+    uid = str(callback.from_user.id)
+
+    def _get_car():
+        return supabase.table("user_cars").select("*").eq("id", car_id).eq("user_id", uid).execute()
+    res = await asyncio.to_thread(_get_car)
+    if not res.data:
+        await callback.answer("❌ Машина не найдена!", show_alert=True)
+        return
+    car = res.data[0]
+    car_price = CARS_CAT.get(car["car_key"], {"price": 100000}).get("price", 100000)
+    sell_price = int(car_price * 0.5)
+
+    p = await get_profile(callback.from_user)
+    new_coins = p.get("coins", 0) + sell_price
+
+    def _sell():
+        supabase.table("users").update({"coins": new_coins}).eq("user_id", uid).execute()
+        supabase.table("user_cars").delete().eq("id", car_id).execute()
+        # Если продали активную, выберем другую если есть
+        left_res = supabase.table("user_cars").select("*").eq("user_id", uid).execute()
+        if left_res.data:
+            # Сделаем первую активной
+            supabase.table("user_cars").update({"is_active": True}).eq("id", left_res.data[0]["id"]).execute()
+    await asyncio.to_thread(_sell)
+
+    await callback.answer(f"✅ Машина продана за {sell_price:,} 🪙 (50% от стоимости)!", show_alert=True)
+    callback.data = f"menu_garage_{uid}"
+    await callback_main_menu(callback, None)
+
 # --- ТЕХПОДДЕРЖКА (SUPPORT SYSTEM) ---
 async def prompt_support(callback: types.CallbackQuery, state: FSMContext):
     uid = str(callback.from_user.id)
@@ -870,6 +935,12 @@ async def use_inventory_item(callback: types.CallbackQuery, state: FSMContext):
     elif item_key == "pc":
         respect += 150
         effect_text = "💻 Вы установили мощный игровой ПК! (+150 респекта)"
+    elif item_key == "vr":
+        respect += 220
+        effect_text = "🥽 Вы погрузились в VR-мир! (+220 респекта)"
+    elif item_key == "server":
+        respect += 400
+        effect_text = "🖥 Домашний сервер запущен! (+400 респекта)"
     elif item_key == "cigars":
         smoke_lvl += 1
         respect += 5
@@ -1123,7 +1194,7 @@ async def shop_cars_list(callback: types.CallbackQuery):
         await callback.answer("❌ Это не ваше меню!", show_alert=True)
         return
     p = await get_profile(callback.from_user)
-    text = f"🏎 **АВТОСАЛОН** (Баланс: `{p.get('coins', 0):,}` 🪙):\nВыберите машину для покупки:\n\n"
+    text = f"🏎 **АВТОСАЛОН** (Баланс: `{p.get('coins', 0):,}` 🪙):\nВыберите машину для покупки (от дешевых к дорогим):\n\n"
     buttons = []
     for k, car in CARS_CAT.items():
         if car.get("admin_only"):
@@ -1212,6 +1283,8 @@ async def car_tune_menu(callback: types.CallbackQuery):
     engine_cost = car["engine_lvl"] * 20000
     turbo_cost = car["turbo_lvl"] * 35000
     handling_cost = car["handling_lvl"] * 15000
+    car_price = CARS_CAT.get(car["car_key"], {"price": 100000}).get("price", 100000)
+    sell_price = int(car_price * 0.5)
 
     text = (
         f"⚙️ **ТЮНИНГ И ПОКРАСКА: {car['car_name']}**\n"
@@ -1227,6 +1300,7 @@ async def car_tune_menu(callback: types.CallbackQuery):
         [InlineKeyboardButton(text=f"⬆️ Улучшить Турбину ({turbo_cost:,} 🪙)", callback_data=f"up_car_{car_id}_turbo")],
         [InlineKeyboardButton(text=f"⬆️ Улучшить Руль ({handling_cost:,} 🪙)", callback_data=f"up_car_{car_id}_handling")],
         [InlineKeyboardButton(text="🎨 Выбрать цвет покраски (8 цветов)", callback_data=f"paint_car_menu_{car_id}")],
+        [InlineKeyboardButton(text=f"🗑 Продать за {sell_price:,} 🪙", callback_data=f"car_sell_{car_id}")],
         [InlineKeyboardButton(text="🔙 В гараж", callback_data=f"menu_garage_{callback.from_user.id}")]
     ])
     try:
@@ -1510,10 +1584,11 @@ async def pers_shop_apt(callback: types.CallbackQuery):
     p = await get_profile(callback.from_user)
     buttons = []
     for k, v in APARTMENTS_CAT.items():
-        buttons.append([InlineKeyboardButton(text=f"{v['name']} — {v['price']:,} 🪙", callback_data=f"pers_buy_apt_{k}_{uid}")])
+        sell_p = int(v['price'] * 0.5)
+        buttons.append([InlineKeyboardButton(text=f"{v['name']} — {v['price']:,} 🪙 (Продажа: {sell_p:,})", callback_data=f"pers_buy_apt_{k}_{uid}")])
     buttons.append([InlineKeyboardButton(text="🔙 Назад к имуществу", callback_data=f"menu_personal_{uid}")])
     try:
-        await callback.message.edit_text(f"🏢 **РЫНОК КВАРТИР** (Баланс: `{p.get('coins', 0):,}` 🪙):\nВыберите вариант:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+        await callback.message.edit_text(f"🏢 **РЫНОК КВАРТИР (от дешевых к элитным)**\nБаланс: `{p.get('coins', 0):,}` 🪙\nВыберите вариант:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
 
@@ -1523,10 +1598,11 @@ async def pers_shop_house(callback: types.CallbackQuery):
     p = await get_profile(callback.from_user)
     buttons = []
     for k, v in HOUSES_CAT.items():
-        buttons.append([InlineKeyboardButton(text=f"{v['name']} — {v['price']:,} 🪙", callback_data=f"pers_buy_house_{k}_{uid}")])
+        sell_p = int(v['price'] * 0.5)
+        buttons.append([InlineKeyboardButton(text=f"{v['name']} — {v['price']:,} 🪙 (Продажа: {sell_p:,})", callback_data=f"pers_buy_house_{k}_{uid}")])
     buttons.append([InlineKeyboardButton(text="🔙 Назад к имуществу", callback_data=f"menu_personal_{uid}")])
     try:
-        await callback.message.edit_text(f"🏡 **РЫНОК ДОМОВ** (Баланс: `{p.get('coins', 0):,}` 🪙):\nВыберите вариант:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+        await callback.message.edit_text(f"🏡 **РЫНОК ДОМОВ (от дач до островов)**\nБаланс: `{p.get('coins', 0):,}` 🪙\nВыберите вариант:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
 
@@ -2181,14 +2257,20 @@ async def family_shop_menu(callback: types.CallbackQuery):
     text = (
         f"🛒 **СЕМЕЙНЫЙ МАГАЗИН ИМУЩЕСТВА**\n"
         f"💰 Бюджет семьи: `{fam.get('budget', 0):,}` 🪙\n\n"
-        f"Покупайте имущество в общую собственность за счет семейного бюджета:"
+        f"Покупайте имущество в общую собственность за счет семейного бюджета (от дешевых к элитным):"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏡 Купить Коттедж (800k)", callback_data="fam_buy_house_cottage")],
-        [InlineKeyboardButton(text="🏰 Купить Поместье (5M)", callback_data="fam_buy_house_estate")],
-        [InlineKeyboardButton(text="🏢 Купить Пентхаус (1.2M)", callback_data="fam_buy_apt_penthouse")],
-        [InlineKeyboardButton(text="🏎 Купить Supercar (6M)", callback_data="fam_buy_car_chiron")],
-        [InlineKeyboardButton(text="🍖 Купить еду для семьи (+50 еды = 50k)", callback_data="fam_buy_food")],
+        [InlineKeyboardButton(text="🏡 Коттедж (800k)", callback_data="fam_buy_house_cottage")],
+        [InlineKeyboardButton(text="🏡 Дом Хай-тек (1.4M)", callback_data="fam_buy_house_modern")],
+        [InlineKeyboardButton(text="🏡 Вилла (2M)", callback_data="fam_buy_house_villa")],
+        [InlineKeyboardButton(text="🏰 Поместье (5M)", callback_data="fam_buy_house_estate")],
+        [InlineKeyboardButton(text="🏰 Замок (7.5M)", callback_data="fam_buy_house_castle")],
+        [InlineKeyboardButton(text="👑 Особняк (10M)", callback_data="fam_buy_house_palace")],
+        [InlineKeyboardButton(text="🏢 Пентхаус (1.2M)", callback_data="fam_buy_apt_penthouse")],
+        [InlineKeyboardButton(text="🏢 Двухуровневые (2.5M)", callback_data="fam_buy_apt_duplex")],
+        [InlineKeyboardButton(text="🏎 Supercar (6M)", callback_data="fam_buy_car_chiron")],
+        [InlineKeyboardButton(text="🏎 Koenigsegg (14M)", callback_data="fam_buy_car_koenigsegg")],
+        [InlineKeyboardButton(text="🍖 Еда для семьи (+50 еды = 50k)", callback_data="fam_buy_food")],
         [InlineKeyboardButton(text="🔙 В меню семьи", callback_data=f"menu_marry_{uid}")]
     ])
     try:
@@ -2204,8 +2286,9 @@ async def fam_buy_item(callback: types.CallbackQuery):
         await callback.answer("❌ Семья не найдена!", show_alert=True)
         return
     
-    action = callback.data.split("_")[2] # house, apt, car, food
-    key = callback.data.split("_")[3] if len(callback.data.split("_")) > 3 else ""
+    parts = callback.data.split("_")
+    action = parts[2] # house, apt, car, food
+    key = parts[3] if len(parts) > 3 else ""
     
     budget = fam.get("budget", 0)
     cost = 0
