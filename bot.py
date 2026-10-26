@@ -533,7 +533,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 for idx, eq_key in enumerate(arm_items):
                     eq_data = SHOP_EQUIPMENT.get(eq_key, {"name": eq_key})
                     is_eq = " [НАДЕТО]" if equipped == eq_key else ""
-                    buttons.append([InlineKeyboardButton(text=f"⚔️ Надеть: {eq_data['name']}{is_eq}", callback_data=f"equip_item_{idx}_{eq_key}")])
+                    buttons.append([InlineKeyboardButton(text=f"⚔️ Надеть: {eq_data['name']}{is_eq}", callback_data=f"equip_item_{idx}_{eq_key}_{uid}")])
                 if equipped:
                     buttons.append([InlineKeyboardButton(text="🛑 Снять экипировку", callback_data=f"unequip_item_{uid}")])
                 buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")])
@@ -556,7 +556,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 buttons = []
                 for idx, item_key in enumerate(items):
                     item_info = SHOP_CONSUMABLES.get(item_key) or SEX_SHOP.get(item_key) or {"name": item_key}
-                    buttons.append([InlineKeyboardButton(text=f"🎁 Использовать: {item_info['name']}", callback_data=f"use_item_{idx}_{item_key}")])
+                    buttons.append([InlineKeyboardButton(text=f"🎁 Использовать: {item_info['name']}", callback_data=f"use_item_{idx}_{item_key}_{uid}")])
                 buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")])
                 kb = InlineKeyboardMarkup(inline_keyboard=buttons)
                 
@@ -584,9 +584,9 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                     text += f"🚗 **{car['car_name']}** | {car['color']} {active_mark}\n"
                     text += f"   └ Двиг: Ур.{car['engine_lvl']} | Турбо: Ур.{car['turbo_lvl']} | Управл: Ур.{car['handling_lvl']}\n\n"
                     if not car['is_active']:
-                        buttons.append([InlineKeyboardButton(text=f"🔑 Сесть за руль: {car['car_name']}", callback_data=f"car_activate_{car['id']}")])
-                    buttons.append([InlineKeyboardButton(text=f"⚙️ Тюнинг: {car['car_name']}", callback_data=f"car_tune_{car['id']}")])
-                    buttons.append([InlineKeyboardButton(text=f"🗑 Продать за {sell_price:,} 🪙", callback_data=f"car_sell_{car['id']}")])
+                        buttons.append([InlineKeyboardButton(text=f"🔑 Сесть за руль: {car['car_name']}", callback_data=f"car_activate_{car['id']}_{uid}")])
+                    buttons.append([InlineKeyboardButton(text=f"⚙️ Тюнинг: {car['car_name']}", callback_data=f"car_tune_{car['id']}_{uid}")])
+                    buttons.append([InlineKeyboardButton(text=f"🗑 Продать за {sell_price:,} 🪙", callback_data=f"car_sell_{car['id']}_{uid}")])
 
             buttons.append([InlineKeyboardButton(text="🛍 Автосалон (Купить авто)", callback_data=f"shop_cars_list_{uid}")])
             buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")])
@@ -666,7 +666,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                     lvl = u.get('level', 1)
                     title = LEVELS.get(lvl, {}).get("title", "")
                     text += f"{i}. **{u.get('username')}** — Ур. `{lvl}` (*{title}*) | 🪙 `{u.get('coins'):,}`\n"
-                    buttons.append([InlineKeyboardButton(text=f"👤 Профиль: {u.get('username')}", callback_data=f"view_profile_{u.get('user_id')}")])
+                    buttons.append([InlineKeyboardButton(text=f"👤 Профиль: {u.get('username')}", callback_data=f"view_profile_{u.get('user_id')}_{uid}")])
             else:
                 text += "Игроков пока нет."
             buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")])
@@ -679,10 +679,10 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
         elif action == "work":
             text = f"{header}\n💼 **БИРЖА ТРУДА** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\nВыберите смену:"
             kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="⛏ Шахтёр (40-90 🪙)", callback_data="do_work_1")],
-                [InlineKeyboardButton(text="🛡 Стражник (60-130 🪙)", callback_data="do_work_2")],
-                [InlineKeyboardButton(text="🧪 Алхимик (90-180 🪙)", callback_data="do_work_3")],
-                [InlineKeyboardButton(text="🐉 Охотник (130-260 🪙)", callback_data="do_work_4")],
+                [InlineKeyboardButton(text="⛏ Шахтёр (40-90 🪙)", callback_data=f"do_work_1_{uid}")],
+                [InlineKeyboardButton(text="🛡 Стражник (60-130 🪙)", callback_data=f"do_work_2_{uid}")],
+                [InlineKeyboardButton(text="🧪 Алхимик (90-180 🪙)", callback_data=f"do_work_3_{uid}")],
+                [InlineKeyboardButton(text="🐉 Охотник (130-260 🪙)", callback_data=f"do_work_4_{uid}")],
                 [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
             ])
             try:
@@ -744,13 +744,13 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                     f"👇 Управляйте своей семьей через кнопки ниже:"
                 )
                 kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🍑 Уединиться (Секс)", callback_data="family_sex_select")],
-                    [InlineKeyboardButton(text="👶 Завести ребенка", callback_data="family_child_prompt"),
-                     InlineKeyboardButton(text="🍖 Покормить ребенка", callback_data="family_feed_child")],
-                    [InlineKeyboardButton(text="💰 Внести в бюджет", callback_data=f"family_deposit_prompt"),
-                     InlineKeyboardButton(text="💸 Снять с бюджета", callback_data=f"family_withdraw_prompt")],
-                    [InlineKeyboardButton(text="🛒 Семейный магазин", callback_data=f"family_shop_menu")],
-                    [InlineKeyboardButton(text="💔 Развестись", callback_data="action_divorce"),
+                    [InlineKeyboardButton(text="🍑 Уединиться (Секс)", callback_data=f"family_sex_select_{uid}")],
+                    [InlineKeyboardButton(text="👶 Завести ребенка", callback_data=f"family_child_prompt_{uid}"),
+                     InlineKeyboardButton(text="🍖 Покормить ребенка", callback_data=f"family_feed_child_{uid}")],
+                    [InlineKeyboardButton(text="💰 Внести в бюджет", callback_data=f"family_deposit_prompt_{uid}"),
+                     InlineKeyboardButton(text="💸 Снять с бюджета", callback_data=f"family_withdraw_prompt_{uid}")],
+                    [InlineKeyboardButton(text="🛒 Семейный магазин", callback_data=f"family_shop_menu_{uid}")],
+                    [InlineKeyboardButton(text="💔 Развестись", callback_data=f"action_divorce_{uid}"),
                      InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
                 ])
             else:
@@ -775,7 +775,14 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
 # --- ПРОДАЖА МАШИНЫ ---
 @dp.callback_query(F.data.startswith("car_sell_"))
 async def car_sell_action(callback: types.CallbackQuery):
-    car_id = int(callback.data.split("_")[2])
+    parts = callback.data.split("_")
+    car_id = int(parts[2])
+    owner_id = parts[3] if len(parts) > 3 else None
+    
+    if owner_id and str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     uid = str(callback.from_user.id)
 
     def _get_car():
@@ -1009,9 +1016,15 @@ async def partner_give_me(message: types.Message):
         await message.answer("❌ Укажите корректную сумму числом!")
         return
 
-    # Админы могут выдавать без лимита, а партнеры лимитированы 1,000,000 в день
+    now_dt = datetime.now()
+    today_str = now_dt.strftime("%Y-%m-%d")
+
+    seconds_left = 86400 - (now_dt.hour * 3600 + now_dt.minute * 60 + now_dt.second)
+    hours_left = seconds_left // 3600
+    minutes_left = (seconds_left % 3600) // 60
+    time_reset_str = f"{hours_left} ч. {minutes_left} мин."
+
     if not is_user_admin and is_user_partner:
-        today_str = datetime.now().strftime("%Y-%m-%d")
         last_date = p.get("partner_last_date", "")
         given_today = p.get("partner_given_today", 0)
 
@@ -1022,9 +1035,10 @@ async def partner_give_me(message: types.Message):
         if given_today + amount > 1000000:
             remaining = max(0, 1000000 - given_today)
             await message.answer(
-                f"❌ Превышен суточный лимит партнерской программы!\n"
+                f"❌ **Превышен суточный лимит партнерской программы!**\n\n"
                 f"📊 Выдано сегодня: `{given_today:,}` / 1,000,000 🪙\n"
-                f"💡 Доступно для выдачи: `{remaining:,}` 🪙",
+                f"💡 Доступно для выдачи: `{remaining:,}` 🪙\n"
+                f"⏳ До обновления лимита осталось: `{time_reset_str}`",
                 parse_mode=ParseMode.MARKDOWN
             )
             return
@@ -1041,14 +1055,14 @@ async def partner_give_me(message: types.Message):
         await asyncio.to_thread(_upd_partner)
 
         await message.answer(
-            f"⭐️ **Партнерская выдача успешна!**\n"
+            f"⭐️ **Партнерская выдача успешна!**\n\n"
             f"🪙 Выдано себе: `+{amount:,}` 🪙\n"
             f"📊 Лимит сегодня: `{given_today:,}` / 1,000,000 🪙\n"
-            f"💰 Ваш новый баланс: `{new_coins:,}` 🪙",
+            f"💰 Ваш новый баланс: `{new_coins:,}` 🪙\n"
+            f"⏳ До обновления лимита осталось: `{time_reset_str}`",
             parse_mode=ParseMode.MARKDOWN
         )
     else:
-        # Админская выдача через giveme без лимита
         new_coins = p.get("coins", 0) + amount
         def _upd_admin():
             supabase.table("users").update({"coins": new_coins}).eq("user_id", str(user.id)).execute()
@@ -1063,8 +1077,13 @@ async def use_inventory_item(callback: types.CallbackQuery, state: FSMContext):
         await callback.answer("❌ Ошибка предмета!", show_alert=True)
         return
     idx = int(parts[2])
-    item_key = "_".join(parts[3:])
-    
+    item_key = parts[3]
+    owner_id = parts[4] if len(parts) > 4 else None
+
+    if owner_id and str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваш инвентарь!", show_alert=True)
+        return
+
     p = await get_profile(callback.from_user)
     uid = str(callback.from_user.id)
     inv_str = p.get("inventory") or ""
@@ -1164,9 +1183,14 @@ async def equip_item_handler(callback: types.CallbackQuery, state: FSMContext):
     if len(parts) < 4:
         await callback.answer("❌ Ошибка снаряжения!", show_alert=True)
         return
-    eq_key = "_".join(parts[3:])
+    eq_key = f"{parts[2]}_{parts[3]}"
+    owner_id = parts[4] if len(parts) > 4 else None
+
+    if owner_id and str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваша оружейная!", show_alert=True)
+        return
+
     uid = str(callback.from_user.id)
-    
     p = await get_profile(callback.from_user)
     armory_str = p.get("armory") or ""
     items = [i.strip() for i in armory_str.split(",") if i.strip()]
@@ -1202,7 +1226,14 @@ async def unequip_item_handler(callback: types.CallbackQuery, state: FSMContext)
 # --- ПРОСМОТР ЧУЖОГО ПРОФИЛЯ ---
 @dp.callback_query(F.data.startswith("view_profile_"))
 async def view_other_profile(callback: types.CallbackQuery):
-    target_uid = callback.data.split("_")[2]
+    parts = callback.data.split("_")
+    target_uid = parts[2]
+    owner_id = parts[3] if len(parts) > 3 else None
+
+    if owner_id and str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     p = await get_profile_by_id(target_uid)
     if not p:
         await callback.answer("❌ Профиль не найден!", show_alert=True)
@@ -1237,7 +1268,6 @@ async def view_other_profile(callback: types.CallbackQuery):
     apt_info = f"🏢 Квартира: `{p.get('personal_apartment', '❌ Нет')}`"
     house_info = f"🏡 Дом: `{p.get('personal_house', '❌ Нет')}`"
 
-    # Эмуляция объекта user для проверки админки просматриваемого
     class DummyUser:
         def __init__(self, username):
             self.username = username
@@ -1441,7 +1471,14 @@ async def buy_car_action(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data.startswith("car_activate_"))
 async def car_activate(callback: types.CallbackQuery):
-    car_id = int(callback.data.split("_")[2])
+    parts = callback.data.split("_")
+    car_id = int(parts[2])
+    owner_id = parts[3] if len(parts) > 3 else None
+
+    if owner_id and str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     uid = str(callback.from_user.id)
 
     def _set_active():
@@ -1455,7 +1492,15 @@ async def car_activate(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data.startswith("car_tune_"))
 async def car_tune_menu(callback: types.CallbackQuery):
-    car_id = int(callback.data.split("_")[2])
+    parts = callback.data.split("_")
+    car_id = int(parts[2])
+    owner_id = parts[3] if len(parts) > 3 else None
+
+    if owner_id and str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
+    uid = str(callback.from_user.id)
     def _get_car():
         return supabase.table("user_cars").select("*").eq("id", car_id).execute()
     res = await asyncio.to_thread(_get_car)
@@ -1483,12 +1528,12 @@ async def car_tune_menu(callback: types.CallbackQuery):
     )
 
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=f"⬆️ Улучшить Двигатель ({engine_cost:,} 🪙)", callback_data=f"up_car_{car_id}_engine")],
-        [InlineKeyboardButton(text=f"⬆️ Улучшить Турбину ({turbo_cost:,} 🪙)", callback_data=f"up_car_{car_id}_turbo")],
-        [InlineKeyboardButton(text=f"⬆️ Улучшить Руль ({handling_cost:,} 🪙)", callback_data=f"up_car_{car_id}_handling")],
-        [InlineKeyboardButton(text="🎨 Выбрать цвет покраски (8 цветов)", callback_data=f"paint_car_menu_{car_id}")],
-        [InlineKeyboardButton(text=f"🗑 Продать за {sell_price:,} 🪙", callback_data=f"car_sell_{car_id}")],
-        [InlineKeyboardButton(text="🔙 В гараж", callback_data=f"menu_garage_{callback.from_user.id}")]
+        [InlineKeyboardButton(text=f"⬆️ Улучшить Двигатель ({engine_cost:,} 🪙)", callback_data=f"up_car_{car_id}_engine_{uid}")],
+        [InlineKeyboardButton(text=f"⬆️ Улучшить Турбину ({turbo_cost:,} 🪙)", callback_data=f"up_car_{car_id}_turbo_{uid}")],
+        [InlineKeyboardButton(text=f"⬆️ Улучшить Руль ({handling_cost:,} 🪙)", callback_data=f"up_car_{car_id}_handling_{uid}")],
+        [InlineKeyboardButton(text="🎨 Выбрать цвет покраски (8 цветов)", callback_data=f"paint_car_menu_{car_id}_{uid}")],
+        [InlineKeyboardButton(text=f"🗑 Продать за {sell_price:,} 🪙", callback_data=f"car_sell_{car_id}_{uid}")],
+        [InlineKeyboardButton(text="🔙 В гараж", callback_data=f"menu_garage_{uid}")]
     ])
     try:
         await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
@@ -1500,6 +1545,11 @@ async def upgrade_car_part(callback: types.CallbackQuery):
     parts = callback.data.split("_")
     car_id = int(parts[2])
     part = parts[3]
+    owner_id = parts[4] if len(parts) > 4 else None
+
+    if owner_id and str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
 
     def _get_car():
         return supabase.table("user_cars").select("*").eq("id", car_id).execute()
@@ -1531,16 +1581,23 @@ async def upgrade_car_part(callback: types.CallbackQuery):
     await asyncio.to_thread(_update)
 
     await callback.answer("✅ Улучшение успешно установлено!", show_alert=True)
-    callback.data = f"car_tune_{car_id}"
+    callback.data = f"car_tune_{car_id}_{p['user_id']}"
     await car_tune_menu(callback)
 
 @dp.callback_query(F.data.startswith("paint_car_menu_"))
 async def paint_car_menu(callback: types.CallbackQuery):
-    car_id = int(callback.data.split("_")[3] if len(callback.data.split("_")) > 3 else callback.data.split("_")[2])
+    parts = callback.data.split("_")
+    car_id = int(parts[3])
+    owner_id = parts[4] if len(parts) > 4 else None
+
+    if owner_id and str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     buttons = []
     for color in CAR_COLORS:
-        buttons.append([InlineKeyboardButton(text=f"🎨 {color}", callback_data=f"set_color_{car_id}_{color}")])
-    buttons.append([InlineKeyboardButton(text="🔙 Назад к тюнингу", callback_data=f"car_tune_{car_id}")])
+        buttons.append([InlineKeyboardButton(text=f"🎨 {color}", callback_data=f"set_color_{car_id}_{color}_{owner_id}")])
+    buttons.append([InlineKeyboardButton(text="🔙 Назад к тюнингу", callback_data=f"car_tune_{car_id}_{owner_id}")])
 
     try:
         await callback.message.edit_text("🎨 **ВЫБЕРИТЕ ЦВЕТ ДЛЯ ПОКРАСКИ МАШИНЫ:**", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
@@ -1551,14 +1608,19 @@ async def paint_car_menu(callback: types.CallbackQuery):
 async def set_car_color(callback: types.CallbackQuery):
     parts = callback.data.split("_")
     car_id = int(parts[2])
-    color = "_".join(parts[3:])
+    color = parts[3]
+    owner_id = parts[4] if len(parts) > 4 else None
+
+    if owner_id and str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
 
     def _update_color():
         supabase.table("user_cars").update({"color": color}).eq("id", car_id).execute()
     await asyncio.to_thread(_update_color)
 
     await callback.answer(f"🎨 Машина перекрашена в {color}!", show_alert=True)
-    callback.data = f"car_tune_{car_id}"
+    callback.data = f"car_tune_{car_id}_{owner_id}"
     await car_tune_menu(callback)
 
 # --- УЛИЧНЫЕ ГОНКИ (ПО СОГЛАСИЮ) ---
@@ -1594,14 +1656,18 @@ async def cmd_race(message: types.Message):
         
     PENDING_RACES[str(target.id)] = {"challenger_id": str(challenger.id), "bet": bet}
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏁 Принять гонку", callback_data="race_accept"),
-         InlineKeyboardButton(text="❌ Отклонить", callback_data="race_decline")]
+        [InlineKeyboardButton(text="🏁 Принять гонку", callback_data=f"race_accept_{target.id}"),
+         InlineKeyboardButton(text="❌ Отклонить", callback_data=f"race_decline_{target.id}")]
     ])
     await message.answer(f"🏁 **{target.first_name}**, вас вызвали на уличную гонку со ставкой `{bet:,}` 🪙 от **{challenger.first_name}**!", reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
 
-@dp.callback_query(F.data == "race_accept")
+@dp.callback_query(F.data.startswith("race_accept_"))
 async def race_accept(callback: types.CallbackQuery):
-    target_id = str(callback.from_user.id)
+    target_id = callback.data.split("_")[2]
+    if str(callback.from_user.id) != target_id:
+        await callback.answer("❌ Вызов предназначался не вам!", show_alert=True)
+        return
+
     data = PENDING_RACES.get(target_id)
     if not data:
         await callback.answer("❌ Вызов устарел!", show_alert=True)
@@ -1654,9 +1720,13 @@ async def race_accept(callback: types.CallbackQuery):
     await callback.message.edit_text(f"🏁 **ГОНКА ЗАВЕРШЕНА!**\n\n🏆 Победитель: **{w_name}**!\n💰 Выигрыш: `+{bet*2:,}` 🪙\n✨ Опыт: `+{xp_gain} XP`", parse_mode=ParseMode.MARKDOWN)
     await callback.answer("Гонка завершена!")
 
-@dp.callback_query(F.data == "race_decline")
+@dp.callback_query(F.data.startswith("race_decline_"))
 async def race_decline(callback: types.CallbackQuery):
-    PENDING_RACES.pop(str(callback.from_user.id), None)
+    target_id = callback.data.split("_")[2]
+    if str(callback.from_user.id) != target_id:
+        await callback.answer("❌ Это не ваше приглашение!", show_alert=True)
+        return
+    PENDING_RACES.pop(target_id, None)
     await callback.message.edit_text("❌ Вызов на гонку отклонен.")
     await callback.answer("Отклонено")
 
@@ -1664,6 +1734,9 @@ async def race_decline(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("shop_eq_list_"))
 async def callback_shop_eq(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
     p = await get_profile(callback.from_user)
     header = await get_menu_header(callback.from_user, p)
     text = f"{header}\n⚔️ **МАГАЗИН СНАРЯЖЕНИЯ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
@@ -1681,6 +1754,9 @@ async def callback_shop_eq(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("shop_cons_list_"))
 async def callback_shop_cons(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
     p = await get_profile(callback.from_user)
     header = await get_menu_header(callback.from_user, p)
     text = f"{header}\n🍺 **ПРОДУКТЫ И ТЕХНИКА** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
@@ -1700,6 +1776,10 @@ async def callback_buy_eq(callback: types.CallbackQuery, state: FSMContext):
     parts = callback.data.split("_")
     item_id = f"{parts[2]}_{parts[3]}"
     uid = parts[4]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     item = SHOP_EQUIPMENT[item_id]
     p = await get_profile(callback.from_user)
     
@@ -1723,6 +1803,10 @@ async def callback_buy_eq(callback: types.CallbackQuery, state: FSMContext):
 async def callback_buy_cons(callback: types.CallbackQuery, state: FSMContext):
     parts = callback.data.split("_")
     uid = parts[-1]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     item_key = "_".join(parts[2:-1])
     item = SHOP_CONSUMABLES[item_key]
     p = await get_profile(callback.from_user)
@@ -1747,6 +1831,10 @@ async def callback_buy_cons(callback: types.CallbackQuery, state: FSMContext):
 async def buy_sex_item(callback: types.CallbackQuery, state: FSMContext):
     parts = callback.data.split("_")
     uid = parts[-1]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     item_key = "_".join(parts[2:-1])
     item = SEX_SHOP[item_key]
     p = await get_profile(callback.from_user)
@@ -1770,6 +1858,9 @@ async def buy_sex_item(callback: types.CallbackQuery, state: FSMContext):
 @dp.callback_query(F.data.startswith("pers_shop_apt_"))
 async def pers_shop_apt(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
     p = await get_profile(callback.from_user)
     header = await get_menu_header(callback.from_user, p)
     buttons = []
@@ -1785,6 +1876,9 @@ async def pers_shop_apt(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("pers_shop_house_"))
 async def pers_shop_house(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
     p = await get_profile(callback.from_user)
     header = await get_menu_header(callback.from_user, p)
     buttons = []
@@ -1804,6 +1898,10 @@ async def pers_buy_item(callback: types.CallbackQuery, state: FSMContext):
     item_key = parts[3] 
     uid = parts[4]
     
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     p = await get_profile(callback.from_user)
     item_data = {}
     col_name = ""
@@ -1884,8 +1982,12 @@ async def slots_help_callback(callback: types.CallbackQuery):
 async def do_work_callback(callback: types.CallbackQuery):
     parts = callback.data.split("_")
     job_id = parts[2]
-    uid = str(callback.from_user.id)
+    uid = parts[3] if len(parts) > 3 else str(callback.from_user.id)
     
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     p = await get_profile(callback.from_user)
     header = await get_menu_header(callback.from_user, p)
     now = time.time()
@@ -1916,10 +2018,10 @@ async def do_work_callback(callback: types.CallbackQuery):
     
     text = f"{header}\n💼 **БИРЖА ТРУДА** (Баланс: `{new_coins:,}` 🪙):\n\n✅ Последняя смена ({job['name']}): `+{earned_coins} 🪙`, `+{earned_xp} XP`\n\nВыберите смену:"
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⛏ Шахтёр (40-90 🪙)", callback_data="do_work_1")],
-        [InlineKeyboardButton(text="🛡 Стражник (60-130 🪙)", callback_data="do_work_2")],
-        [InlineKeyboardButton(text="🧪 Алхимик (90-180 🪙)", callback_data="do_work_3")],
-        [InlineKeyboardButton(text="🐉 Охотник (130-260 🪙)", callback_data="do_work_4")],
+        [InlineKeyboardButton(text="⛏ Шахтёр (40-90 🪙)", callback_data=f"do_work_1_{uid}")],
+        [InlineKeyboardButton(text="🛡 Стражник (60-130 🪙)", callback_data=f"do_work_2_{uid}")],
+        [InlineKeyboardButton(text="🧪 Алхимик (90-180 🪙)", callback_data=f"do_work_3_{uid}")],
+        [InlineKeyboardButton(text="🐉 Охотник (130-260 🪙)", callback_data=f"do_work_4_{uid}")],
         [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
     ])
     try:
@@ -2098,15 +2200,21 @@ async def cmd_marry(message: types.Message):
         
     PENDING_MARRIAGES[str(user2.id)] = str(user1.id)
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="💍 Принять", callback_data=f"marry_accept_{user1.id}"),
-         InlineKeyboardButton(text="💔 Отклонить", callback_data="marry_decline")]
+        [InlineKeyboardButton(text="💍 Принять", callback_data=f"marry_accept_{user1.id}_{user2.id}"),
+         InlineKeyboardButton(text="💔 Отклонить", callback_data=f"marry_decline_{user2.id}")]
     ])
     await message.answer(f"💍 **{user2.first_name}**, вам сделали предложение от **{user1.first_name}**!", reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
 
 @dp.callback_query(F.data.startswith("marry_accept_"))
 async def marry_accept(callback: types.CallbackQuery):
-    target_id = callback.data.split("_")[2]
-    user2_id = str(callback.from_user.id)
+    parts = callback.data.split("_")
+    target_id = parts[2]
+    user2_id = parts[3]
+    
+    if str(callback.from_user.id) != user2_id:
+        await callback.answer("❌ Предложение адресовано не вам!", show_alert=True)
+        return
+
     if PENDING_MARRIAGES.get(user2_id) != target_id:
         await callback.answer("❌ Предложение неактуально!", show_alert=True)
         return
@@ -2137,9 +2245,12 @@ async def marry_accept(callback: types.CallbackQuery):
     await callback.message.edit_text(f"💍 **ПОЗДРАВЛЯЕМ!** 🎉\n\n**{p1['username']}** и **{p2['username']}** официально заключили брак!", parse_mode=ParseMode.MARKDOWN)
     await callback.answer("💍 Брак заключен!")
 
-@dp.callback_query(F.data == "marry_decline")
+@dp.callback_query(F.data.startswith("marry_decline_"))
 async def marry_decline(callback: types.CallbackQuery):
-    user2_id = str(callback.from_user.id)
+    user2_id = callback.data.split("_")[2]
+    if str(callback.from_user.id) != user2_id:
+        await callback.answer("❌ Это предложение не вам!", show_alert=True)
+        return
     PENDING_MARRIAGES.pop(user2_id, None)
     await callback.message.edit_text("💔 Предложение было отклонено.")
     await callback.answer("Отклонено")
@@ -2148,8 +2259,13 @@ async def marry_decline(callback: types.CallbackQuery):
 async def cmd_divorce_msg(message: types.Message):
     await process_divorce(message.from_user, message)
 
-@dp.callback_query(F.data == "action_divorce")
+@dp.callback_query(F.data.startswith("action_divorce_"))
 async def callback_divorce(callback: types.CallbackQuery, state: FSMContext):
+    owner_id = callback.data.split("_")[2]
+    if str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     await process_divorce(callback.from_user, callback.message, callback=callback)
     uid = str(callback.from_user.id)
     callback.data = f"menu_marry_{uid}"
@@ -2174,8 +2290,13 @@ async def process_divorce(user, message_obj, callback=None):
     if callback: await callback.answer(text, show_alert=True)
     else: await message_obj.answer(text)
 
-@dp.callback_query(F.data == "family_sex_select")
+@dp.callback_query(F.data.startswith("family_sex_select_"))
 async def family_sex_select(callback: types.CallbackQuery):
+    owner_id = callback.data.split("_")[3]
+    if str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     uid = str(callback.from_user.id)
     p = await get_profile(callback.from_user)
     pid = p.get("partner_id")
@@ -2191,8 +2312,8 @@ async def family_sex_select(callback: types.CallbackQuery):
     buttons = []
     for idx, s_item in sex_items:
         item_data = SEX_SHOP.get(s_item, {"name": s_item})
-        buttons.append([InlineKeyboardButton(text=f"🔥 {item_data['name']}", callback_data=f"family_sex_do_{idx}_{s_item}")])
-    buttons.append([InlineKeyboardButton(text="🔥 Без игрушек (Классика)", callback_data="family_sex_do_none_none")])
+        buttons.append([InlineKeyboardButton(text=f"🔥 {item_data['name']}", callback_data=f"family_sex_do_{idx}_{s_item}_{uid}")])
+    buttons.append([InlineKeyboardButton(text="🔥 Без игрушек (Классика)", callback_data=f"family_sex_do_none_none_{uid}")])
     buttons.append([InlineKeyboardButton(text="💍 Назад в семью", callback_data=f"menu_marry_{uid}")])
     
     try:
@@ -2203,6 +2324,15 @@ async def family_sex_select(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data.startswith("family_sex_do_"))
 async def family_sex_execute(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    item_idx_str = parts[3]
+    item_key = parts[4]
+    owner_id = parts[5] if len(parts) > 5 else None
+
+    if owner_id and str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     uid = str(callback.from_user.id)
     now = time.time()
     if now - INTIMATE_COOLDOWNS.get(uid, 0) < 300:
@@ -2215,10 +2345,6 @@ async def family_sex_execute(callback: types.CallbackQuery):
     if not pid or str(pid) == "0" or p.get("partner_name") == "EMPTY":
         await callback.answer("❌ У вас нет партнера!", show_alert=True)
         return
-    
-    parts = callback.data.split("_")
-    item_idx_str = parts[3]
-    item_key = "_".join(parts[4:])
     
     inv_str = p.get("inventory") or ""
     items = [i.strip() for i in inv_str.split(",") if i.strip()]
@@ -2260,7 +2386,7 @@ async def family_sex_execute(callback: types.CallbackQuery):
     vulgar_desc += f"✨ Получено опыта: `+{xp_gain} XP`\n❤️ Получено респекта: `+{respect_gain}`"
     
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🔄 Повторить страсть", callback_data="family_sex_select")],
+        [InlineKeyboardButton(text="🔄 Повторить страсть", callback_data=f"family_sex_select_{uid}")],
         [InlineKeyboardButton(text="💍 В меню семьи", callback_data=f"menu_marry_{uid}")]
     ])
     try:
@@ -2269,8 +2395,13 @@ async def family_sex_execute(callback: types.CallbackQuery):
         await callback.message.answer(vulgar_desc, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
     await callback.answer("🔥 Было безумно жарко!")
 
-@dp.callback_query(F.data == "family_child_prompt")
+@dp.callback_query(F.data.startswith("family_child_prompt_"))
 async def family_child_prompt(callback: types.CallbackQuery, state: FSMContext):
+    owner_id = callback.data.split("_")[3]
+    if str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     uid = str(callback.from_user.id)
     fam = await get_family(uid)
     if not fam:
@@ -2312,8 +2443,13 @@ async def process_child_name(message: types.Message, state: FSMContext):
         parse_mode=ParseMode.MARKDOWN
     )
 
-@dp.callback_query(F.data == "family_feed_child")
+@dp.callback_query(F.data.startswith("family_feed_child_"))
 async def family_feed_child(callback: types.CallbackQuery):
+    owner_id = callback.data.split("_")[3]
+    if str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     uid = str(callback.from_user.id)
     fam = await get_family(uid)
     if not fam or fam.get("child_name") == "❌ Нет":
@@ -2335,8 +2471,13 @@ async def family_feed_child(callback: types.CallbackQuery):
     callback.data = f"menu_marry_{uid}"
     await callback_main_menu(callback, None)
 
-@dp.callback_query(F.data == "family_deposit_prompt")
+@dp.callback_query(F.data.startswith("family_deposit_prompt_"))
 async def family_deposit_prompt(callback: types.CallbackQuery, state: FSMContext):
+    owner_id = callback.data.split("_")[3]
+    if str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     uid = str(callback.from_user.id)
     fam = await get_family(uid)
     if not fam:
@@ -2391,8 +2532,13 @@ async def process_deposit_amount(message: types.Message, state: FSMContext):
         parse_mode=ParseMode.MARKDOWN
     )
 
-@dp.callback_query(F.data == "family_withdraw_prompt")
+@dp.callback_query(F.data.startswith("family_withdraw_prompt_"))
 async def family_withdraw_prompt(callback: types.CallbackQuery, state: FSMContext):
+    owner_id = callback.data.split("_")[3]
+    if str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     uid = str(callback.from_user.id)
     fam = await get_family(uid)
     if not fam:
@@ -2441,8 +2587,13 @@ async def process_withdraw_amount(message: types.Message, state: FSMContext):
         parse_mode=ParseMode.MARKDOWN
     )
 
-@dp.callback_query(F.data == "family_shop_menu")
+@dp.callback_query(F.data.startswith("family_shop_menu_"))
 async def family_shop_menu(callback: types.CallbackQuery):
+    owner_id = callback.data.split("_")[3]
+    if str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     uid = str(callback.from_user.id)
     fam = await get_family(uid)
     if not fam:
@@ -2454,17 +2605,17 @@ async def family_shop_menu(callback: types.CallbackQuery):
         f"Покупайте имущество в общую собственность за счет семейного бюджета (строго по возрастанию цены):"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏡 Коттедж (800k)", callback_data="fam_buy_house_cottage")],
-        [InlineKeyboardButton(text="🏢 Пентхаус (1.2M)", callback_data="fam_buy_apt_penthouse")],
-        [InlineKeyboardButton(text="🏡 Дом Хай-тек (1.4M)", callback_data="fam_buy_house_modern")],
-        [InlineKeyboardButton(text="🏡 Вилла (2M)", callback_data="fam_buy_house_villa")],
-        [InlineKeyboardButton(text="🏢 Двухуровневые (2.5M)", callback_data="fam_buy_apt_duplex")],
-        [InlineKeyboardButton(text="🏰 Поместье (5M)", callback_data="fam_buy_house_estate")],
-        [InlineKeyboardButton(text="🏎 Supercar (6M)", callback_data="fam_buy_car_chiron")],
-        [InlineKeyboardButton(text="🏰 Замок (7.5M)", callback_data="fam_buy_house_castle")],
-        [InlineKeyboardButton(text="👑 Особняк (10M)", callback_data="fam_buy_house_palace")],
-        [InlineKeyboardButton(text="🏎 Koenigsegg (14M)", callback_data="fam_buy_car_koenigsegg")],
-        [InlineKeyboardButton(text="🍖 Еда для семьи (+50 еды = 50k)", callback_data="fam_buy_food")],
+        [InlineKeyboardButton(text="🏡 Коттедж (800k)", callback_data=f"fam_buy_house_cottage_{uid}")],
+        [InlineKeyboardButton(text="🏢 Пентхаус (1.2M)", callback_data=f"fam_buy_apt_penthouse_{uid}")],
+        [InlineKeyboardButton(text="🏡 Дом Хай-тек (1.4M)", callback_data=f"fam_buy_house_modern_{uid}")],
+        [InlineKeyboardButton(text="🏡 Вилла (2M)", callback_data=f"fam_buy_house_villa_{uid}")],
+        [InlineKeyboardButton(text="🏢 Двухуровневые (2.5M)", callback_data=f"fam_buy_apt_duplex_{uid}")],
+        [InlineKeyboardButton(text="🏰 Поместье (5M)", callback_data=f"fam_buy_house_estate_{uid}")],
+        [InlineKeyboardButton(text="🏎 Supercar (6M)", callback_data=f"fam_buy_car_chiron_{uid}")],
+        [InlineKeyboardButton(text="🏰 Замок (7.5M)", callback_data=f"fam_buy_house_castle_{uid}")],
+        [InlineKeyboardButton(text="👑 Особняк (10M)", callback_data=f"fam_buy_house_palace_{uid}")],
+        [InlineKeyboardButton(text="🏎 Koenigsegg (14M)", callback_data=f"fam_buy_car_koenigsegg_{uid}")],
+        [InlineKeyboardButton(text="🍖 Еда для семьи (+50 еды = 50k)", callback_data=f"fam_buy_food_none_{uid}")],
         [InlineKeyboardButton(text="🔙 В меню семьи", callback_data=f"menu_marry_{uid}")]
     ])
     try:
@@ -2474,15 +2625,20 @@ async def family_shop_menu(callback: types.CallbackQuery):
 
 @dp.callback_query(F.data.startswith("fam_buy_"))
 async def fam_buy_item(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    action = parts[2] 
+    key = parts[3]
+    owner_id = parts[4] if len(parts) > 4 else None
+
+    if owner_id and str(callback.from_user.id) != owner_id:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
     uid = str(callback.from_user.id)
     fam = await get_family(uid)
     if not fam:
         await callback.answer("❌ Семья не найдена!", show_alert=True)
         return
-    
-    parts = callback.data.split("_")
-    action = parts[2] # house, apt, car, food
-    key = parts[3] if len(parts) > 3 else ""
     
     budget = fam.get("budget", 0)
     cost = 0
@@ -2525,6 +2681,7 @@ async def fam_buy_item(callback: types.CallbackQuery):
     await asyncio.to_thread(_buy)
     
     await callback.answer(f"🎉 Успешно приобретено для семьи!", show_alert=True)
+    callback.data = f"family_shop_menu_{uid}"
     await family_shop_menu(callback)
 
 # --- АДМИН-МЕНЮ И УНИВЕРСАЛЬНЫЕ АДМИН-КОМАНДЫ ---
