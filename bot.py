@@ -20,6 +20,7 @@ SUPABASE_URL = "https://cbypocbgeevwqhjahchy.supabase.co"
 SUPABASE_KEY = "sb_publishable_zcF4S765sEmvXLIQegRkFg_1el4gZn_".strip()
 
 ADMIN_USERNAMES = {"p0tat0777"}
+ADMIN_IDS = {1828211535}  # Жестко зашитый ID для гарантированной доставки техподдержки
 
 logging.basicConfig(level=logging.INFO)
 
@@ -111,73 +112,49 @@ LEVELS = {
 
 BUSINESSES_CAT = {
     "lemonade": {
-        "name": "🍋 Лимонадный киоск",
-        "price": 50000,
-        "base_profit": 1500,
-        "raw_cost_per_unit": 20,
+        "name": "🍋 Лимонадный киоск", "price": 50000, "base_profit": 1500, "raw_cost_per_unit": 20,
         "up1": {"name": "🧊 Промышленный льдогенератор", "price": 20000, "profit_add": 300, "raw_add": 2},
         "up2": {"name": "🥤 Автомат по разливу", "price": 45000, "profit_add": 700, "raw_add": 4},
         "up3": {"name": "🌟 Брендовая неоновая вывеска", "price": 90000, "profit_add": 1500, "raw_add": 7}
     },
     "cafe": {
-        "name": "☕ Уютная кофейня",
-        "price": 200000,
-        "base_profit": 5500,
-        "raw_cost_per_unit": 60,
+        "name": "☕ Уютная кофейня", "price": 200000, "base_profit": 5500, "raw_cost_per_unit": 60,
         "up1": {"name": "🫘 Итальянская кофемашина", "price": 80000, "profit_add": 1200, "raw_add": 3},
         "up2": {"name": "🥐 Витрина со свежей выпечкой", "price": 160000, "profit_add": 2500, "raw_add": 6},
         "up3": {"name": "🛋 Зона отдыха для гостей", "price": 320000, "profit_add": 5200, "raw_add": 10}
     },
     "farm": {
-        "name": "🌾 Агроферма",
-        "price": 400000,
-        "base_profit": 11000,
-        "raw_cost_per_unit": 100,
+        "name": "🌾 Агроферма", "price": 400000, "base_profit": 11000, "raw_cost_per_unit": 100,
         "up1": {"name": "💧 Система капельного полива", "price": 150000, "profit_add": 2400, "raw_add": 4},
         "up2": {"name": "🚜 Новый трактор МТЗ", "price": 300000, "profit_add": 5000, "raw_add": 8},
         "up3": {"name": "🧪 Удобрения нового поколения", "price": 600000, "profit_add": 10500, "raw_add": 14}
     },
     "shop": {
-        "name": "🏪 Супермаркет",
-        "price": 800000,
-        "base_profit": 22000,
-        "raw_cost_per_unit": 200,
+        "name": "🏪 Супермаркет", "price": 800000, "base_profit": 22000, "raw_cost_per_unit": 200,
         "up1": {"name": "❄️ Морозильные камеры", "price": 300000, "profit_add": 5000, "raw_add": 5},
         "up2": {"name": "💳 Кассы самообслуживания", "price": 600000, "profit_add": 11000, "raw_add": 10},
         "up3": {"name": "🕒 Круглосуточный режим 24/7", "price": 1200000, "profit_add": 23000, "raw_add": 18}
     },
     "plant": {
-        "name": "🏭 Завод",
-        "price": 1500000,
-        "base_profit": 42000,
-        "raw_cost_per_unit": 350,
+        "name": "🏭 Завод", "price": 1500000, "base_profit": 42000, "raw_cost_per_unit": 350,
         "up1": {"name": "🛠 Новый ЧПУ станок", "price": 500000, "profit_add": 9000, "raw_add": 6},
         "up2": {"name": "⚡ Автоматическая линия сборки", "price": 1100000, "profit_add": 20000, "raw_add": 12},
         "up3": {"name": "🤖 Роботизированный цех", "price": 2400000, "profit_add": 43000, "raw_add": 20}
     },
     "oil": {
-        "name": "🛢 Нефтяная вышка",
-        "price": 3500000,
-        "base_profit": 95000,
-        "raw_cost_per_unit": 700,
+        "name": "🛢 Нефтяная вышка", "price": 3500000, "base_profit": 95000, "raw_cost_per_unit": 700,
         "up1": {"name": "⚙️ Буровой бур нового поколения", "price": 1200000, "profit_add": 21000, "raw_add": 8},
         "up2": {"name": "🛞 Насосы высокого давления", "price": 2500000, "profit_add": 45000, "raw_add": 16},
         "up3": {"name": "🧪 Система очистки сырой нефти", "price": 5000000, "profit_add": 95000, "raw_add": 25}
     },
     "it": {
-        "name": "💻 IT-компания",
-        "price": 6000000,
-        "base_profit": 170000,
-        "raw_cost_per_unit": 1200,
+        "name": "💻 IT-компания", "price": 6000000, "base_profit": 170000, "raw_cost_per_unit": 1200,
         "up1": {"name": "🖥 Серверная стойка с RTX", "price": 2000000, "profit_add": 38000, "raw_add": 10},
         "up2": {"name": "🛡 Система кибербезопасности", "price": 4500000, "profit_add": 82000, "raw_add": 20},
         "up3": {"name": "🌐 Квантовый дата-центр", "price": 9000000, "profit_add": 175000, "raw_add": 30}
     },
     "space": {
-        "name": "🚀 Космодром",
-        "price": 15000000,
-        "base_profit": 400000,
-        "raw_cost_per_unit": 2500,
+        "name": "🚀 Космодром", "price": 15000000, "base_profit": 400000, "raw_cost_per_unit": 2500,
         "up1": {"name": "🛰 Стартовый комплекс", "price": 5000000, "profit_add": 90000, "raw_add": 15},
         "up2": {"name": "📡 РЛС дальнего действия", "price": 11000000, "profit_add": 200000, "raw_add": 30},
         "up3": {"name": "🌌 Межпланетный ангар", "price": 22000000, "profit_add": 420000, "raw_add": 45}
@@ -341,9 +318,13 @@ def format_age(seconds: int) -> str:
     return " ".join(res) if res else "0 мин."
 
 def is_admin(user: types.User) -> bool:
-    if not user or not user.username:
+    if not user:
         return False
-    return user.username.lower() in {u.lower() for u in ADMIN_USERNAMES}
+    if user.id in ADMIN_IDS:
+        return True
+    if user.username and user.username.lower() in {u.lower() for u in ADMIN_USERNAMES}:
+        return True
+    return False
 
 async def get_menu_header(user: types.User, p: dict = None) -> str:
     if not p:
@@ -375,26 +356,6 @@ async def get_profile_by_username(username: str):
     except Exception as e:
         logging.error(f"Error fetching profile by username: {e}")
     return None
-
-async def resolve_target_user(message: types.Message, args: list, identifier_index: int = 1):
-    if message.reply_to_message:
-        target = message.reply_to_message.from_user
-        return str(target.id), target.first_name
-    
-    if len(args) > identifier_index:
-        identifier = args[identifier_index].strip()
-        if identifier.isdigit():
-            p = await get_profile_by_id(identifier)
-            if p:
-                return str(p["user_id"]), p["username"]
-            return identifier, f"ID:{identifier}"
-        else:
-            p = await get_profile_by_username(identifier)
-            if p:
-                return str(p["user_id"]), p["username"]
-            return None, f"❌ Пользователь `{identifier}` не найден в базе данных!"
-            
-    return None, "❌ Укажите пользователя через ответ на сообщение, `@username` или `user_id`!"
 
 async def get_profile(user: types.User):
     uid = str(user.id)
@@ -590,45 +551,25 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
         uid = str(callback.from_user.id)
         header = await get_menu_header(callback.from_user, p)
         
-        if action == "biz":
-            await update_businesses_for_user(uid)
-            def _get_biz():
-                return supabase.table("user_businesses").select("*").eq("user_id", uid).execute()
-            res = await asyncio.to_thread(_get_biz)
-            user_businesses = res.data if res.data else []
-
-            text = f"{header}\n🏢 **ВАШИ БИЗНЕСЫ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
-            buttons = []
-
-            if not user_businesses:
-                text += "У вас пока нет ни одного бизнеса. Приобретите их на бирже предприятий ниже!"
-            else:
-                for b in user_businesses:
-                    workers = b["workers"]
-                    max_w = b["max_workers"]
-                    raw = b["raw_material"]
-                    max_r = b["max_raw_material"]
-                    profit_h = b["profit_per_hour"]
-                    accumulated = b["balance_profit"]
-                    
-                    w_status = f"{workers}/{max_w}"
-                    if workers < (max_w * 0.5):
-                        w_status += " ⚠️ (Мало работников, простой!)"
-                    
-                    r_status = f"{raw}/{max_r}"
-                    if raw <= 0:
-                        r_status += " ❌ (Нет сырья!)"
-
-                    text += f"🔹 **{b['business_name']}** (Ур. {b['level']})\n"
-                    text += f"   💰 Прибыль: `{profit_h:,}` 🪙/час | Накоплено: `+{accumulated:,}` 🪙\n"
-                    text += f"   👷 Работники: {w_status} | 📦 Сырье: {r_status}\n\n"
-                    
-                    buttons.append([InlineKeyboardButton(text=f"⚙️ Управление: {b['business_name']}", callback_data=f"biz_manage_{b['id']}_{uid}")])
-
-            buttons.append([InlineKeyboardButton(text="📈 Биржа предприятий (Купить бизнес)", callback_data=f"biz_shop_list_{uid}")])
-            buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")])
-            
-            kb = InlineKeyboardMarkup(inline_keyboard=buttons)
+        if action == "casino":
+            text = (
+                f"{header}\n"
+                f"🎰 **КАЗИНО И ИГРЫ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
+                "🔥 **Доступные игры в чате:**\n"
+                "• `/dice <ставка> <числа 1-6>` — Кости (выигрыш до x6)\n"
+                "• `/coin <ставка> <орел/решка>` — Монетка (x2)\n"
+                "• `/slots <ставка>` — Слоты (до x10)\n"
+                "• `/roulette <ставка> <красное/черное/зеленое>` — Рулетка (x2 / x14)\n"
+                "• `/crash <ставка>` — Краш-ракета (случайный множитель)\n"
+                "• `/card <ставка> <выше/ниже>` — Дуэль карт с дилером (x1.95)\n"
+                "• `/wheel <ставка>` — Колесо фортуны (до x5)\n"
+                "• `/lottery <кол-во>` — Лотерейные билеты (500 🪙/шт)\n"
+                "• `/duel` — Дуэль игроков с экипировкой\n\n"
+            )
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🎰 Комбинации слотов", callback_data=f"slots_help_{uid}")],
+                [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
+            ])
             try:
                 await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             except TelegramBadRequest:
@@ -882,25 +823,6 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 [InlineKeyboardButton(text="🛡 Стражник (60-130 🪙)", callback_data=f"do_work_2_{uid}")],
                 [InlineKeyboardButton(text="🧪 Алхимик (90-180 🪙)", callback_data=f"do_work_3_{uid}")],
                 [InlineKeyboardButton(text="🐉 Охотник (130-260 🪙)", callback_data=f"do_work_4_{uid}")],
-                [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
-            ])
-            try:
-                await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-            except TelegramBadRequest:
-                await callback.answer()
-            
-        elif action == "casino":
-            text = (
-                f"{header}\n"
-                f"🎰 **КАЗИНО И ИГРЫ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
-                "Доступные игры в чате:\n"
-                "• `/dice <ставка> <числа 1-6>`\n"
-                "• `/coin <ставка> <орел/решка>`\n"
-                "• `/slots <ставка>`\n"
-                "• `/duel` (Дуэль с экипировкой)\n\n"
-            )
-            kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🎰 Комбинации слотов", callback_data=f"slots_help_{uid}")],
                 [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
             ])
             try:
@@ -1448,9 +1370,17 @@ async def process_support_message(message: types.Message, state: FSMContext):
         [InlineKeyboardButton(text="💬 Ответить", callback_data=f"reply_supp_{sender.id}")]
     ])
     
+    # 1. Отправляем строго по жестко зашитым ADMIN_IDS (гарантированная доставка!)
+    for admin_id in ADMIN_IDS:
+        try:
+            await bot.send_message(chat_id=admin_id, text=admin_text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+        except Exception as e:
+            logging.error(f"Failed to send support ticket to admin ID {admin_id}: {e}")
+
+    # 2. Также дублируем по юзернеймам из базы на случай дополнительных админов
     for admin_username in ADMIN_USERNAMES:
         ap = await get_profile_by_username(admin_username)
-        if ap and ap.get("user_id"):
+        if ap and ap.get("user_id") and int(ap["user_id"]) not in ADMIN_IDS:
             try:
                 await bot.send_message(chat_id=int(ap["user_id"]), text=admin_text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             except Exception as e:
@@ -2594,6 +2524,227 @@ async def do_work_callback(callback: types.CallbackQuery):
         await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         pass
+
+# --- НОВЫЕ ИГРЫ КАЗИНО ---
+
+@dp.message(Command("roulette"))
+async def cmd_roulette(message: types.Message, state: FSMContext):
+    await state.clear()
+    args = message.text.split()
+    if len(args) < 3:
+        await message.answer("❌ Использование: `/roulette <ставка> <красное/черное/зеленое>`", parse_mode=ParseMode.MARKDOWN)
+        return
+    try:
+        bet = int(args[1])
+        choice = args[2].lower()
+        if bet <= 0 or choice not in ["красное", "черное", "зеленое"]:
+            raise ValueError()
+    except ValueError:
+        await message.answer("❌ Неверные параметры! Выберите: красное, черное или зеленое.", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    p = await get_profile(message.from_user)
+    if p.get("coins", 0) < bet:
+        await message.answer("❌ Недостаточно монет!")
+        return
+
+    # Рулетка: 48% красное, 48% черное, 4% зеленое (зеро)
+    roll = random.random()
+    if roll < 0.04:
+        result = "зеленое"
+        mult = 14.0
+    elif roll < 0.52:
+        result = "красное"
+        mult = 2.0
+    else:
+        result = "черное"
+        mult = 2.0
+
+    coins = p["coins"] - bet
+    if choice == result:
+        win = int(bet * mult)
+        coins += win
+        profit = win - bet
+        res_text = f"🇷🇺 Выпало **{result.upper()}**! Вы угадали и выиграли `+{profit:,}` монет! 🎉 (Множитель: x{mult})"
+    else:
+        res_text = f"🇷🇺 Выпало **{result.upper()}**. Вы проиграли `{bet:,}` монет. 💸"
+
+    def _upd():
+        supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
+    await asyncio.to_thread(_upd)
+    await message.answer(f"{res_text}\n💰 Баланс: `{coins:,}` 🪙", parse_mode=ParseMode.MARKDOWN)
+
+@dp.message(Command("crash"))
+async def cmd_crash(message: types.Message, state: FSMContext):
+    await state.clear()
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("❌ Использование: `/crash <ставка>`", parse_mode=ParseMode.MARKDOWN)
+        return
+    try:
+        bet = int(args[1])
+        if bet <= 0: raise ValueError()
+    except ValueError:
+        await message.answer("❌ Неверная ставка!", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    p = await get_profile(message.from_user)
+    if p.get("coins", 0) < bet:
+        await message.answer("❌ Недостаточно монет!")
+        return
+
+    coins = p["coins"] - bet
+    # 20% шанс сгореть сразу (0x), 80% шанс взлететь на случайный коэффициент от 1.2x до 5.0x
+    if random.random() < 0.20:
+        multiplier = 0.0
+    else:
+        multiplier = round(random.uniform(1.2, 5.0), 2)
+
+    if multiplier > 0:
+        win = int(bet * multiplier)
+        coins += win
+        profit = win - multiplier * bet # условно чистый профит или просто выигрыш
+        res_text = f"🚀 Ракета взлетела до **{multiplier}x**! Вы успешно забрали выигрыш `+{win:,}` 🪙!"
+    else:
+        res_text = f"💥 РАКЕТА ВЗОРВАЛАСЬ НА СТАРТЕ (0x)! Вы потеряли `{bet:,}` 🪙."
+
+    def _upd():
+        supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
+    await asyncio.to_thread(_upd)
+    await message.answer(f"{res_text}\n💰 Баланс: `{coins:,}` 🪙", parse_mode=ParseMode.MARKDOWN)
+
+@dp.message(Command("card"))
+async def cmd_card(message: types.Message, state: FSMContext):
+    await state.clear()
+    args = message.text.split()
+    if len(args) < 3:
+        await message.answer("❌ Использование: `/card <ставка> <выше/ниже>`", parse_mode=ParseMode.MARKDOWN)
+        return
+    try:
+        bet = int(args[1])
+        choice = args[2].lower()
+        if bet <= 0 or choice not in ["выше", "ниже", "в"]:
+            raise ValueError()
+    except ValueError:
+        await message.answer("❌ Укажите ставку и прогноз: `выше` или `ниже`.", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    p = await get_profile(callback if False else message.from_user) # type: ignore
+    if p.get("coins", 0) < bet:
+        await message.answer("❌ Недостаточно монет!")
+        return
+
+    dealer_card = random.randint(2, 14) # 11=J, 12=Q, 13=K, 14=A
+    my_card = random.randint(2, 14)
+    card_names = {11: "Валет", 12: "Дама", 13: "Король", 14: "Туз"}
+    d_name = card_names.get(dealer_card, str(dealer_card))
+    m_name = card_names.get(my_card, str(my_card))
+
+    coins = p["coins"] - bet
+    is_higher = my_card > dealer_card
+    is_win = (choice in ["выше", "в"] and is_higher) or (choice == "ниже" and not is_higher)
+
+    if my_card == dealer_card:
+        coins += bet # ничья, возврат ставки
+        res_text = f"🃏 Ничья! У дилера `{d_name}`, у вас `{m_name}`. Ставка возвращена."
+    elif is_win:
+        win = int(bet * 1.95)
+        coins += win
+        res_text = f"🃏 У дилера `{d_name}`, у вас `{m_name}`. Вы угадали! Выигрыш `+{win:,}` 🪙 (x1.95)"
+    else:
+        res_text = f"🃏 У дилера `{d_name}`, у вас `{m_name}`. Вы проиграли `{bet:,}` 🪙."
+
+    def _upd():
+        supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
+    await asyncio.to_thread(_upd)
+    await message.answer(f"{res_text}\n💰 Баланс: `{coins:,}` 🪙", parse_mode=ParseMode.MARKDOWN)
+
+@dp.message(Command("wheel"))
+async def cmd_wheel(message: types.Message, state: FSMContext):
+    await state.clear()
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("❌ Использование: `/wheel <ставка>`", parse_mode=ParseMode.MARKDOWN)
+        return
+    try:
+        bet = int(args[1])
+        if bet <= 0: raise ValueError()
+    except ValueError:
+        await message.answer("❌ Неверная ставка!", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    p = await get_profile(message.from_user)
+    if p.get("coins", 0) < bet:
+        await message.answer("❌ Недостаточно монет!")
+        return
+
+    sectors = [0, 0.5, 1.0, 1.5, 2.0, 3.0, 5.0]
+    weights = [35, 20, 20, 12, 8, 4, 1] # Вероятности выпадения
+    multiplier = random.choices(sectors, weights=weights)[0]
+
+    coins = p["coins"] - bet
+    win = int(bet * multiplier)
+    coins += win
+
+    def _upd():
+        supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
+    await asyncio.to_thread(_upd)
+
+    if multiplier > 0:
+        await message.answer(f"🎡 Колесо указало на сектор **x{multiplier}**! Ваш выигрыш: `+{win:,}` 🪙\n💰 Баланс: `{coins:,}` 🪙", parse_mode=ParseMode.MARKDOWN)
+    else:
+        await message.answer(f"🎡 Колесо указало на сектор **x0 (Банкрот)**. Вы потеряли `{bet:,}` 🪙.\n💰 Баланс: `{coins:,}` 🪙", parse_mode=ParseMode.MARKDOWN)
+
+@dp.message(Command("lottery"))
+async def cmd_lottery(message: types.Message, state: FSMContext):
+    await state.clear()
+    args = message.text.split()
+    ticket_price = 500
+    try:
+        count = int(args[1]) if len(args) > 1 else 1
+        if count <= 0: raise ValueError()
+    except ValueError:
+        count = 1
+
+    total_cost = ticket_price * count
+    p = await get_profile(message.from_user)
+    if p.get("coins", 0) < total_cost:
+        await message.answer(f"❌ Недостаточно монет! Нужно `{total_cost:,}` 🪙 за `{count}` билет(ов).", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    coins = p["coins"] - total_cost
+    total_won = 0
+    wins_count = 0
+
+    for _ in range(count):
+        r = random.random()
+        if r < 0.01: # 1% шанс на суперприз
+            total_won += 10000
+            wins_count += 1
+        elif r < 0.08: # 7% шанс на средний приз
+            total_won += 2500
+            wins_count += 1
+        elif r < 0.25: # 17% шанс на возврат х2
+            total_won += 1000
+            wins_count += 1
+
+    coins += total_won
+    profit = total_won - total_cost
+
+    def _upd():
+        supabase.table("users").update({"coins": coins}).eq("user_id", p["user_id"]).execute()
+    await asyncio.to_thread(_upd)
+
+    await message.answer(
+        f"🎟 **ИТОГИ ЛОТЕРЕИ** (Куплено билетов: `{count}` за `{total_cost:,}` 🪙)\n\n"
+        f"✨ Выигрышных билетов: `{wins_count}` из `{count}`\n"
+        f"🎁 Сумма выигрыша: `+{total_won:,}` 🪙\n"
+        f"📊 Чистый итог: `{profit:+,}` 🪙\n"
+        f"💰 Баланс: `{coins:,}` 🪙",
+        parse_mode=ParseMode.MARKDOWN
+    )
+
+# --- СТАРЫЕ ИГРЫ КАЗИНО ---
 
 @dp.message(Command("dice"))
 async def cmd_dice(message: types.Message, state: FSMContext):
