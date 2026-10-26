@@ -3,6 +3,7 @@ import logging
 import os
 import random
 import time
+from datetime import datetime
 from aiohttp import web
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
@@ -263,6 +264,14 @@ def is_admin(user: types.User) -> bool:
         return False
     return user.username.lower() in {u.lower() for u in ADMIN_USERNAMES}
 
+async def get_menu_header(user: types.User, p: dict = None) -> str:
+    if not p:
+        p = await get_profile(user)
+    uname = p.get('username') or user.first_name
+    admin_tag = " 🟢 **(админ)**" if is_admin(user) else ""
+    partner_tag = " ⭐️ **(партнер)**" if p.get("is_partner") else ""
+    return f"👤 **Меню игрока: {uname}**{admin_tag}{partner_tag}\n"
+
 async def get_profile_by_id(uid: str):
     def _fetch():
         return supabase.table("users").select("*").eq("user_id", str(uid)).execute()
@@ -339,7 +348,11 @@ async def get_profile(user: types.User):
         "last_smoke_time": 0,
         "created_at": now,
         "marriage_time": 0,
-        "profile_music": ""
+        "profile_music": "",
+        "started_in_pm": False,
+        "is_partner": False,
+        "partner_given_today": 0,
+        "partner_last_date": ""
     }
     def _insert():
         return supabase.table("users").upsert(new_user).execute()
@@ -384,9 +397,18 @@ def get_main_keyboard(user_id: int):
 @dp.message(Command(commands=["start", "help", "menu"]))
 async def cmd_start(message: types.Message, state: FSMContext):
     await state.clear()
-    await get_profile(message.from_user)
+    uid = str(message.from_user.id)
+    p = await get_profile(message.from_user)
+    
+    if message.chat.type == "private" and not p.get("started_in_pm", False):
+        def _upd_pm():
+            supabase.table("users").update({"started_in_pm": True}).eq("user_id", uid).execute()
+        await asyncio.to_thread(_upd_pm)
+        p["started_in_pm"] = True
+
+    header = await get_menu_header(message.from_user, p)
     text = (
-        f"👤 **Меню игрока: {message.from_user.first_name}**\n\n"
+        f"{header}\n"
         "🎮 Добро пожаловать в RPG бот!\n"
         "Используйте кнопки ниже для управления персонажем, оружейной, казино, тюнинга и гонок."
     )
@@ -400,7 +422,9 @@ async def callback_back_home(callback: types.CallbackQuery, state: FSMContext):
         return
     try:
         await state.clear()
-        text = f"👤 **Меню игрока: {callback.from_user.first_name}**\n\n🎮 **ГЛАВНОЕ МЕНЮ:**"
+        p = await get_profile(callback.from_user)
+        header = await get_menu_header(callback.from_user, p)
+        text = f"{header}\n🎮 **ГЛАВНОЕ МЕНЮ:**"
         await callback.message.edit_text(text, reply_markup=get_main_keyboard(callback.from_user.id), parse_mode=ParseMode.MARKDOWN)
         await callback.answer()
     except TelegramBadRequest:
@@ -420,6 +444,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
         await state.clear()
         p = await get_profile(callback.from_user)
         uid = str(callback.from_user.id)
+        header = await get_menu_header(callback.from_user, p)
         
         if action == "profile":
             lvl = p.get('level', 1)
@@ -452,7 +477,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             house_info = f"🏡 Дом: `{p.get('personal_house', '❌ Нет')}`"
             
             text = (
-                f"👤 **Профиль: {p.get('username')}**\n"
+                f"{header}\n"
                 f"⏳ Возраст в боте: `{bot_age}`\n"
                 f"⭐ Уровень: `{lvl}` / 67 (*{title}*)\n"
                 f"✨ Опыт (XP): `{p.get('xp')}`\n"
@@ -489,7 +514,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             arm_items = [i.strip() for i in armory_str.split(",") if i.strip()]
             equipped = p.get("equipped_item", "")
             
-            text = f"⚔️ **ОРУЖЕЙНАЯ ИГРОКА {p.get('username')}** (Баланс: `{p.get('coins', 0):,}` 🪙)\n\n"
+            text = f"{header}\n⚔️ **ОРУЖЕЙНАЯ ИГРОКА** (Баланс: `{p.get('coins', 0):,}` 🪙)\n\n"
             eq_info = SHOP_EQUIPMENT.get(equipped)
             if eq_info:
                 text += f"🟢 **Надето:** {eq_info['name']} (*+{eq_info['duel_buff']}% к дуэли*)\n\n"
@@ -524,10 +549,10 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             items = [i.strip() for i in inv_str.split(",") if i.strip()]
             
             if not items:
-                text = f"🎒 **Инвентарь игрока {p.get('username')}** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\nВаш инвентарь пуст."
+                text = f"{header}\n🎒 **Инвентарь игрока** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\nВаш инвентарь пуст."
                 kb = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]])
             else:
-                text = f"🎒 **Инвентарь игрока {p.get('username')}** (Баланс: `{p.get('coins', 0):,}` 🪙):\nНажмите на предмет, чтобы использовать его:\n\n"
+                text = f"{header}\n🎒 **Инвентарь игрока** (Баланс: `{p.get('coins', 0):,}` 🪙):\nНажмите на предмет, чтобы использовать его:\n\n"
                 buttons = []
                 for idx, item_key in enumerate(items):
                     item_info = SHOP_CONSUMABLES.get(item_key) or SEX_SHOP.get(item_key) or {"name": item_key}
@@ -546,7 +571,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             cars_res = await asyncio.to_thread(_get_cars)
             user_cars = cars_res.data if cars_res and cars_res.data else []
 
-            text = f"🏎 **ВАШ ГАРАЖ И АВТОМОБИЛИ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
+            text = f"{header}\n🏎 **ВАШ ГАРАЖ И АВТОМОБИЛИ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
             buttons = []
 
             if not user_cars:
@@ -573,6 +598,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
 
         elif action == "race":
             text = (
+                f"{header}\n"
                 "🏁 **УЛИЧНЫЕ ГОНКИ (PvP по согласию)**\n\n"
                 "🏆 Чтобы бросить вызов сопернику, ответьте на его сообщение командой: `/race <ставка>` (например, `/race 5000`). Сопернику придет кнопка подтверждения."
             )
@@ -585,7 +611,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 await callback.answer()
 
         elif action == "shops":
-            text = f"🛒 **ВЫБЕРИТЕ МАГАЗИН** (Баланс: `{p.get('coins', 0):,}` 🪙):"
+            text = f"{header}\n🛒 **ВЫБЕРИТЕ МАГАЗИН** (Баланс: `{p.get('coins', 0):,}` 🪙):"
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🏎 Автосалон (Все модели)", callback_data=f"shop_cars_list_{uid}")],
                 [InlineKeyboardButton(text="⚔️ Снаряжение (в Оружейную)", callback_data=f"shop_eq_list_{uid}")],
@@ -598,7 +624,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 await callback.answer()
 
         elif action == "sexshop":
-            text = f"🍑 **СЕКС-ШОП «БЕЗ ТОРМОЗОВ»** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\nПриобретайте игрушки, они попадают в инвентарь:"
+            text = f"{header}\n🍑 **СЕКС-ШОП «БЕЗ ТОРМОЗОВ»** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\nПриобретайте игрушки, они попадают в инвентарь:"
             buttons = []
             for item_id, data in SEX_SHOP.items():
                 buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']:,} 🪙", callback_data=f"buy_sex_{item_id}_{uid}")])
@@ -610,6 +636,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
 
         elif action == "personal":
             text = (
+                f"{header}\n"
                 f"🏠 **ЛИЧНОЕ ИМУЩЕСТВО** (Баланс: `{p.get('coins', 0):,}` 🪙)\n\n"
                 f"🏢 Квартира: `{p.get('personal_apartment', '❌ Нет')}`\n"
                 f"🏡 Дом: `{p.get('personal_house', '❌ Нет')}`\n\n"
@@ -632,7 +659,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 res = await asyncio.to_thread(_fetch_top)
             except Exception:
                 res = None
-            text = "🏆 **ТОП-10 ИГРОКОВ:**\nНажмите на игрока, чтобы посмотреть его профиль:\n\n"
+            text = f"{header}\n🏆 **ТОП-10 ИГРОКОВ:**\nНажмите на игрока, чтобы посмотреть его профиль:\n\n"
             buttons = []
             if res and res.data:
                 for i, u in enumerate(res.data, 1):
@@ -650,7 +677,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 await callback.answer()
             
         elif action == "work":
-            text = f"💼 **БИРЖА ТРУДА** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\nВыберите смену:"
+            text = f"{header}\n💼 **БИРЖА ТРУДА** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\nВыберите смену:"
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="⛏ Шахтёр (40-90 🪙)", callback_data="do_work_1")],
                 [InlineKeyboardButton(text="🛡 Стражник (60-130 🪙)", callback_data="do_work_2")],
@@ -665,6 +692,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             
         elif action == "casino":
             text = (
+                f"{header}\n"
                 f"🎰 **КАЗИНО И ИГРЫ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
                 "Доступные игры в чате:\n"
                 "• `/dice <ставка> <числа 1-6>`\n"
@@ -704,6 +732,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 md = format_age(int(time.time()) - m_time)
                 
                 text = (
+                    f"{header}\n"
                     f"💍 **СЕМЕЙНЫЙ ОЧАГ И ИМУЩЕСТВО:**\n\n"
                     f"💍 В браке с: **{pname}** (уже `{md}`)\n"
                     f"💰 Семейный бюджет: `{budget:,}` 🪙\n"
@@ -725,7 +754,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                      InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
                 ])
             else:
-                text = f"💍 **ОТНОШЕНИЯ И СЕМЬЯ:**\n\n💍 Вы свободны. Сделайте предложение любимому человеку через ответ на его сообщение и команду `/marry`"
+                text = f"{header}\n💍 **ОТНОШЕНИЯ И СЕМЬЯ:**\n\n💍 Вы свободны. Сделайте предложение любимому человеку через ответ на его сообщение и команду `/marry`"
                 kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
                 ])
@@ -777,8 +806,21 @@ async def car_sell_action(callback: types.CallbackQuery):
 # --- ТЕХПОДДЕРЖКА (SUPPORT SYSTEM) ---
 async def prompt_support(callback: types.CallbackQuery, state: FSMContext):
     uid = str(callback.from_user.id)
+    p = await get_profile(callback.from_user)
+    
+    if not p.get("started_in_pm", False):
+        await callback.answer("❌ Сначала запустите бота в ЛС (/start)!", show_alert=True)
+        text = (
+            "❌ **Ошибка доступа к техподдержке!**\n\n"
+            "Вы еще не запускали бота в личных сообщениях. Перейдите в ЛС с ботом и нажмите кнопку **Запустить** или отправьте команду `/start`, чтобы зарегистрироваться!"
+        )
+        await callback.message.answer(text, parse_mode=ParseMode.MARKDOWN)
+        return
+
     await state.set_state(SupportState.waiting_for_message)
+    header = await get_menu_header(callback.from_user, p)
     text = (
+        f"{header}\n"
         "🆘 **СЛУЖБА ТЕХНИЧЕСКОЙ ПОДДЕРЖКИ**\n\n"
         "Напишите ваше сообщение или вопрос администраторам бота следующим сообщением.\n"
         "Ваш запрос будет переслан напрямую создателям."
@@ -794,6 +836,15 @@ async def prompt_support(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.message(Command("support"))
 async def cmd_support(message: types.Message, state: FSMContext):
+    p = await get_profile(message.from_user)
+    if not p.get("started_in_pm", False) and message.chat.type != "private":
+        await message.answer(
+            "❌ **Ошибка доступа к техподдержке!**\n\n"
+            "Вы не запустили бота в личных сообщениях. Перейдите в ЛС с ботом и отправьте `/start` для регистрации!",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+
     await state.set_state(SupportState.waiting_for_message)
     await message.answer(
         "🆘 **СЛУЖБА ТЕХНИЧЕСКОЙ ПОДДЕРЖКИ**\n\nОпишите вашу проблему или запрос следующим сообщением:",
@@ -802,6 +853,15 @@ async def cmd_support(message: types.Message, state: FSMContext):
 
 @dp.message(SupportState.waiting_for_message)
 async def process_support_message(message: types.Message, state: FSMContext):
+    p = await get_profile(message.from_user)
+    if not p.get("started_in_pm", False):
+        await state.clear()
+        await message.answer(
+            "❌ **Ошибка регистрации!** Вы не запустили бота в личных сообщениях. Отправьте `/start` боту в ЛС.",
+            parse_mode=ParseMode.MARKDOWN
+        )
+        return
+
     await state.clear()
     sender = message.from_user
     text = message.text or message.caption or "[Медиафайл]"
@@ -818,10 +878,10 @@ async def process_support_message(message: types.Message, state: FSMContext):
     ])
     
     for admin_username in ADMIN_USERNAMES:
-        p = await get_profile_by_username(admin_username)
-        if p and p.get("user_id"):
+        ap = await get_profile_by_username(admin_username)
+        if ap and ap.get("user_id"):
             try:
-                await bot.send_message(chat_id=int(p["user_id"]), text=admin_text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+                await bot.send_message(chat_id=int(ap["user_id"]), text=admin_text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             except Exception as e:
                 logging.error(f"Failed to send support ticket to admin {admin_username}: {e}")
                 
@@ -890,6 +950,110 @@ async def cmd_reply(message: types.Message):
             f"Возможная причина: пользователь еще не запускал бота (/start) в личных сообщениях.\nОшибка: {e}", 
             parse_mode=ParseMode.MARKDOWN
         )
+
+# --- ПАРТНЕРСКАЯ ПРОГРАММА И КОМАНДЫ ---
+@dp.message(Command("setpartner"))
+async def admin_set_partner(message: types.Message):
+    if not is_admin(message.from_user):
+        await message.answer("❌ У вас нет прав администратора!")
+        return
+
+    args = message.text.split()
+    if message.reply_to_message:
+        target_id = str(message.reply_to_message.from_user.id)
+        target_name = message.reply_to_message.from_user.first_name
+    else:
+        if len(args) < 2:
+            await message.answer("❌ Использование: `/setpartner` (реплаем) или `/setpartner <@user/id>`", parse_mode=ParseMode.MARKDOWN)
+            return
+        target_id, target_name = await resolve_target_user(message, args, identifier_index=1)
+        if not target_id:
+            await message.answer(target_name, parse_mode=ParseMode.MARKDOWN)
+            return
+
+    p = await get_profile_by_id(target_id)
+    if not p:
+        p = await get_profile(types.User(id=int(target_id), is_bot=False, first_name=target_name))
+
+    current_status = p.get("is_partner", False)
+    new_status = not current_status
+
+    def _upd():
+        supabase.table("users").update({"is_partner": new_status}).eq("user_id", str(target_id)).execute()
+    await asyncio.to_thread(_upd)
+
+    status_str = "🟢 назначен партнером" if new_status else "🔴 снят с должности партнера"
+    await message.answer(f"✅ Пользователь **{target_name}** теперь {status_str}!", parse_mode=ParseMode.MARKDOWN)
+
+@dp.message(Command("giveme"))
+async def partner_give_me(message: types.Message):
+    user = message.from_user
+    p = await get_profile(user)
+    
+    is_user_admin = is_admin(user)
+    is_user_partner = p.get("is_partner", False)
+
+    if not is_user_admin and not is_user_partner:
+        await message.answer("❌ У вас нет доступа к этой команде!")
+        return
+
+    args = message.text.split()
+    if len(args) < 2:
+        await message.answer("❌ Использование: `/giveme <сумма>`", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    try:
+        amount = int(args[1])
+        if amount <= 0: raise ValueError()
+    except ValueError:
+        await message.answer("❌ Укажите корректную сумму числом!")
+        return
+
+    # Админы могут выдавать без лимита, а партнеры лимитированы 1,000,000 в день
+    if not is_user_admin and is_user_partner:
+        today_str = datetime.now().strftime("%Y-%m-%d")
+        last_date = p.get("partner_last_date", "")
+        given_today = p.get("partner_given_today", 0)
+
+        if last_date != today_str:
+            given_today = 0
+            last_date = today_str
+
+        if given_today + amount > 1000000:
+            remaining = max(0, 1000000 - given_today)
+            await message.answer(
+                f"❌ Превышен суточный лимит партнерской программы!\n"
+                f"📊 Выдано сегодня: `{given_today:,}` / 1,000,000 🪙\n"
+                f"💡 Доступно для выдачи: `{remaining:,}` 🪙",
+                parse_mode=ParseMode.MARKDOWN
+            )
+            return
+
+        given_today += amount
+        new_coins = p.get("coins", 0) + amount
+
+        def _upd_partner():
+            supabase.table("users").update({
+                "coins": new_coins,
+                "partner_given_today": given_today,
+                "partner_last_date": last_date
+            }).eq("user_id", str(user.id)).execute()
+        await asyncio.to_thread(_upd_partner)
+
+        await message.answer(
+            f"⭐️ **Партнерская выдача успешна!**\n"
+            f"🪙 Выдано себе: `+{amount:,}` 🪙\n"
+            f"📊 Лимит сегодня: `{given_today:,}` / 1,000,000 🪙\n"
+            f"💰 Ваш новый баланс: `{new_coins:,}` 🪙",
+            parse_mode=ParseMode.MARKDOWN
+        )
+    else:
+        # Админская выдача через giveme без лимита
+        new_coins = p.get("coins", 0) + amount
+        def _upd_admin():
+            supabase.table("users").update({"coins": new_coins}).eq("user_id", str(user.id)).execute()
+        await asyncio.to_thread(_upd_admin)
+        await message.answer(f"✅ Администратору начислено `+{amount:,}` 🪙 (Баланс: `{new_coins:,}` 🪙)", parse_mode=ParseMode.MARKDOWN)
 
 # --- ИНВЕНТАРЬ И ПРЕДМЕТЫ ---
 @dp.callback_query(F.data.startswith("use_item_"))
@@ -1073,8 +1237,17 @@ async def view_other_profile(callback: types.CallbackQuery):
     apt_info = f"🏢 Квартира: `{p.get('personal_apartment', '❌ Нет')}`"
     house_info = f"🏡 Дом: `{p.get('personal_house', '❌ Нет')}`"
 
+    # Эмуляция объекта user для проверки админки просматриваемого
+    class DummyUser:
+        def __init__(self, username):
+            self.username = username
+    
+    dummy_u = DummyUser(p.get("username"))
+    admin_tag = " 🟢 **(админ)**" if is_admin(dummy_u) else ""
+    partner_tag = " ⭐️ **(партнер)**" if p.get("is_partner") else ""
+
     text = (
-        f"👤 **Профиль игрока: {p.get('username')}** (Просмотр)\n"
+        f"👤 **Профиль игрока: {p.get('username')}**{admin_tag}{partner_tag} (Просмотр)\n"
         f"⏳ Возраст в боте: `{bot_age}`\n"
         f"⭐ Уровень: `{lvl}` / 67 (*{title}*)\n"
         f"✨ Опыт (XP): `{p.get('xp')}`\n"
@@ -1109,8 +1282,10 @@ async def profile_music_menu(callback: types.CallbackQuery):
         return
     p = await get_profile(callback.from_user)
     has_music = bool(p.get("profile_music"))
+    header = await get_menu_header(callback.from_user, p)
     
     text = (
+        f"{header}\n"
         f"🎵 **МУЗЫКА В ПРОФИЛЕ**\n\n"
         f"Здесь вы можете установить аудиозапись или песню, которая будет привязана к вашему профилю.\n"
         f"Статус: `{'Установлена' if has_music else 'Отсутствует'}`"
@@ -1203,7 +1378,8 @@ async def shop_cars_list(callback: types.CallbackQuery):
         await callback.answer("❌ Это не ваше меню!", show_alert=True)
         return
     p = await get_profile(callback.from_user)
-    text = f"🏎 **АВТОСАЛОН** (Баланс: `{p.get('coins', 0):,}` 🪙):\nВыберите машину для покупки (от дешевых к дорогим):\n\n"
+    header = await get_menu_header(callback.from_user, p)
+    text = f"{header}\n🏎 **АВТОСАЛОН** (Баланс: `{p.get('coins', 0):,}` 🪙):\nВыберите машину для покупки (от дешевых к дорогим):\n\n"
     buttons = []
     for k, car in CARS_CAT.items():
         if car.get("admin_only"):
@@ -1288,6 +1464,7 @@ async def car_tune_menu(callback: types.CallbackQuery):
         return
     car = res.data[0]
     p = await get_profile(callback.from_user)
+    header = await get_menu_header(callback.from_user, p)
 
     engine_cost = car["engine_lvl"] * 20000
     turbo_cost = car["turbo_lvl"] * 35000
@@ -1296,6 +1473,7 @@ async def car_tune_menu(callback: types.CallbackQuery):
     sell_price = int(car_price * 0.5)
 
     text = (
+        f"{header}\n"
         f"⚙️ **ТЮНИНГ И ПОКРАСКА: {car['car_name']}**\n"
         f"🎨 Текущий цвет: {car['color']}\n"
         f"🪙 Ваш баланс: `{p.get('coins', 0):,}` 🪙\n\n"
@@ -1487,7 +1665,8 @@ async def race_decline(callback: types.CallbackQuery):
 async def callback_shop_eq(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
     p = await get_profile(callback.from_user)
-    text = f"⚔️ **МАГАЗИН СНАРЯЖЕНИЯ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
+    header = await get_menu_header(callback.from_user, p)
+    text = f"{header}\n⚔️ **МАГАЗИН СНАРЯЖЕНИЯ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
     buttons = []
     for item_id, data in SHOP_EQUIPMENT.items():
         text += f"🔹 **{data['name']}** ({data['price']:,} 🪙)\n   └ *{data['desc']}*\n\n"
@@ -1503,7 +1682,8 @@ async def callback_shop_eq(callback: types.CallbackQuery):
 async def callback_shop_cons(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
     p = await get_profile(callback.from_user)
-    text = f"🍺 **ПРОДУКТЫ И ТЕХНИКА** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
+    header = await get_menu_header(callback.from_user, p)
+    text = f"{header}\n🍺 **ПРОДУКТЫ И ТЕХНИКА** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
     buttons = []
     for item_id, data in SHOP_CONSUMABLES.items():
         text += f"🔹 **{data['name']}** ({data['price']:,} 🪙)\n   └ *{data['desc']}*\n\n"
@@ -1591,13 +1771,14 @@ async def buy_sex_item(callback: types.CallbackQuery, state: FSMContext):
 async def pers_shop_apt(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
     p = await get_profile(callback.from_user)
+    header = await get_menu_header(callback.from_user, p)
     buttons = []
     for k, v in APARTMENTS_CAT.items():
         sell_p = int(v['price'] * 0.5)
         buttons.append([InlineKeyboardButton(text=f"{v['name']} — {v['price']:,} 🪙 (Продажа: {sell_p:,})", callback_data=f"pers_buy_apt_{k}_{uid}")])
     buttons.append([InlineKeyboardButton(text="🔙 Назад к имуществу", callback_data=f"menu_personal_{uid}")])
     try:
-        await callback.message.edit_text(f"🏢 **РЫНОК КВАРТИР (от дешевых к элитным)**\nБаланс: `{p.get('coins', 0):,}` 🪙\nВыберите вариант:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+        await callback.message.edit_text(f"{header}\n🏢 **РЫНОК КВАРТИР (от дешевых к элитным)**\nБаланс: `{p.get('coins', 0):,}` 🪙\nВыберите вариант:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
 
@@ -1605,13 +1786,14 @@ async def pers_shop_apt(callback: types.CallbackQuery):
 async def pers_shop_house(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
     p = await get_profile(callback.from_user)
+    header = await get_menu_header(callback.from_user, p)
     buttons = []
     for k, v in HOUSES_CAT.items():
         sell_p = int(v['price'] * 0.5)
         buttons.append([InlineKeyboardButton(text=f"{v['name']} — {v['price']:,} 🪙 (Продажа: {sell_p:,})", callback_data=f"pers_buy_house_{k}_{uid}")])
     buttons.append([InlineKeyboardButton(text="🔙 Назад к имуществу", callback_data=f"menu_personal_{uid}")])
     try:
-        await callback.message.edit_text(f"🏡 **РЫНОК ДОМОВ (от дач до островов)**\nБаланс: `{p.get('coins', 0):,}` 🪙\nВыберите вариант:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+        await callback.message.edit_text(f"{header}\n🏡 **РЫНОК ДОМОВ (от дач до островов)**\nБаланс: `{p.get('coins', 0):,}` 🪙\nВыберите вариант:", reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
 
@@ -1653,11 +1835,12 @@ async def cmd_work(message: types.Message, state: FSMContext):
     uid = str(message.from_user.id)
     p = await get_profile(message.from_user)
     now = time.time()
+    header = await get_menu_header(message.from_user, p)
     if now - WORK_COOLDOWNS.get(uid, 0) < 60:
         await message.answer(f"⏳ Отдохните еще `{int(60 - (now - WORK_COOLDOWNS.get(uid, 0)))}` сек.", parse_mode=ParseMode.MARKDOWN)
         return
     if len(args) < 2 or args[1] not in JOBS:
-        text = f"💼 **БИРЖА ТРУДА** (Баланс: `{p.get('coins', 0):,}` 🪙):\n"
+        text = f"{header}\n💼 **БИРЖА ТРУДА** (Баланс: `{p.get('coins', 0):,}` 🪙):\n"
         for j_id, j_data in JOBS.items():
             text += f"🔹 [{j_id}] {j_data['name']} (🪙 {j_data['min_coins']}–{j_data['max_coins']})\n"
         text += "👉 Используйте `/work <номер>`"
@@ -1704,6 +1887,7 @@ async def do_work_callback(callback: types.CallbackQuery):
     uid = str(callback.from_user.id)
     
     p = await get_profile(callback.from_user)
+    header = await get_menu_header(callback.from_user, p)
     now = time.time()
     if now - WORK_COOLDOWNS.get(uid, 0) < 60:
         rem = int(60 - (now - WORK_COOLDOWNS.get(uid, 0)))
@@ -1730,7 +1914,7 @@ async def do_work_callback(callback: types.CallbackQuery):
     
     await callback.answer(f"✅ Вы отработали как {job['name']} (+{earned_coins} 🪙, +{earned_xp} XP)", show_alert=True)
     
-    text = f"💼 **БИРЖА ТРУДА** (Баланс: `{new_coins:,}` 🪙):\n\n✅ Последняя смена ({job['name']}): `+{earned_coins} 🪙`, `+{earned_xp} XP`\n\nВыберите смену:"
+    text = f"{header}\n💼 **БИРЖА ТРУДА** (Баланс: `{new_coins:,}` 🪙):\n\n✅ Последняя смена ({job['name']}): `+{earned_coins} 🪙`, `+{earned_xp} XP`\n\nВыберите смену:"
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="⛏ Шахтёр (40-90 🪙)", callback_data="do_work_1")],
         [InlineKeyboardButton(text="🛡 Стражник (60-130 🪙)", callback_data="do_work_2")],
@@ -2233,7 +2417,7 @@ async def process_withdraw_amount(message: types.Message, state: FSMContext):
         await message.answer("❌ Введите корректную сумму числом:")
         return
         
-    uid = str(callback.from_user.id)
+    uid = str(message.from_user.id)
     fam = await get_family(uid)
     if not fam or fam.get("budget", 0) < amount:
         await message.answer("❌ В семейном бюджете недостаточно средств!")
@@ -2356,11 +2540,12 @@ async def cmd_admin_menu(message: types.Message):
         "• **Реплаем** (ответом на сообщение игрока)\n"
         "• **Через аргументы** (`@username` или `user_id`)\n\n"
         "📋 **Список команд:**\n"
-        "1. `/give <сумма>` (или `/give @user <сумма>`) — выдать монеты.\n"
-        "2. `/setcoins <сумма>` (или `/setcoins @user <сумма>`) — точный баланс.\n"
-        "3. `/givecar <ключ>` (или `/givecar @user <ключ>`) — выдать авто (например, `m5f90`).\n"
-        "4. `/reply <user_id> <текст>` — ответить на обращение в техподдержку.\n"
-        "5. `/admin` — открыть это меню.\n\n"
+        "1. `/setpartner` — назначить/снять партнера.\n"
+        "2. `/give <сумма>` — выдать монеты.\n"
+        "3. `/setcoins <сумма>` — точный баланс.\n"
+        "4. `/givecar <ключ>` — выдать авто (например, `m5f90`).\n"
+        "5. `/reply <user_id> <текст>` — ответить в техподдержку.\n"
+        "6. `/admin` — открыть это меню.\n\n"
         "⚠️ Соблюдайте осторожность."
     )
     await message.answer(text, parse_mode=ParseMode.MARKDOWN)
