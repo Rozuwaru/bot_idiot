@@ -228,25 +228,17 @@ async def get_profile_by_username(username: str):
     return None
 
 async def resolve_target_user(message: types.Message, args: list, identifier_index: int = 1):
-    """
-    Универсальный поиск пользователя:
-    1. Через реплай (ответ на сообщение).
-    2. Через упоминание (@username) или ID в аргументах команды.
-    Возвращает (target_id, target_name) или (None, error_text).
-    """
     if message.reply_to_message:
         target = message.reply_to_message.from_user
         return str(target.id), target.first_name
     
     if len(args) > identifier_index:
         identifier = args[identifier_index].strip()
-        # Если передан ID (только цифры)
         if identifier.isdigit():
             p = await get_profile_by_id(identifier)
             if p:
                 return str(p["user_id"]), p["username"]
             return identifier, f"ID:{identifier}"
-        # Если передан юзернейм (с @ или без)
         else:
             p = await get_profile_by_username(identifier)
             if p:
@@ -1523,8 +1515,6 @@ async def admin_give(message: types.Message):
         return
     
     args = message.text.split()
-    # Если реплаем: /give 50000 -> args[1] = сумма
-    # Если текстом: /give @user 50000 -> args[1] = юзер, args[2] = сумма
     if message.reply_to_message:
         if len(args) < 2:
             await message.answer("❌ Укажите сумму: `/give <сумма>`", parse_mode=ParseMode.MARKDOWN)
@@ -1551,7 +1541,6 @@ async def admin_give(message: types.Message):
 
     p = await get_profile_by_id(target_id)
     if not p:
-        # Создадим профиль если его не было
         p = await get_profile(types.User(id=int(target_id), is_bot=False, first_name=target_name))
         
     new_coins = p.get("coins", 0) + amount
@@ -1654,10 +1643,23 @@ async def admin_give_car(message: types.Message):
         logging.error(f"Error giving car: {e}")
         await message.answer("❌ Ошибка при выдаче машины в базу данных.")
 
-# --- ЗАПУСК БОТА ---
+# --- ВЕБ-СЕРВЕР ДЛЯ RENDER И ЗАПУСК БОТА ---
+async def handle(request):
+    return web.Response(text="Bot is running!")
+
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
-    logging.info("Бот запущен...")
+    
+    # Запускаем мини-сервер для Render, чтобы он зафиксировал открытый порт и завершил деплой
+    app = web.Application()
+    app.router.add_get("/", handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    port = int(os.environ.get("PORT", 10000))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+    
+    logging.info("Бот и веб-сервер успешно запущены...")
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
