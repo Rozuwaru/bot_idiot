@@ -147,6 +147,16 @@ SEX_SHOP = {
     "sex_mask": {"name": "🎭 Кружевная маска", "price": 600, "desc": "Атмосфера тайного греха."},
 }
 
+SEX_DESCRIPTIONS = {
+    "sex_vibe": "🟣 Вы включаете мощный вибратор на максимум, прижимая его к чувствительным точкам партнера. Комната наполняется громкими, сочными стонами, а тело партнера бьется в экстазе от непрерывных мощных вибраций.",
+    "sex_gag": "🔴 Туго затянув кожаный кляп в рту партнера, вы лишаете его возможности кричать, оставляя лишь зычные всхлипы и сдавленные стоны, пока вы жестко и страстно берете его.",
+    "sex_cuff": "⛓️ Намертво приковав руки партнера металлическими наручниками к спинке кровати, вы полностью подчиняете его себе, оставляя беззащитным перед вашими дикими ласками и шлепками.",
+    "sex_maid": "👗 Облачив партнера в соблазнительный костюм горничной с кружевами, вы срываете наряд в первые же секунды, погружаясь в неистовую, развратную плотскую утеху.",
+    "sex_whip": "🖤 Резкие и хлесткие удары кожаным хлыстом оставляют алые следы на разгоряченной коже, доводя уровень адреналина и животной страсти до абсолютного пика.",
+    "sex_oil": "🧴 Щупая и втирая теплое массажное масло в каждый сантиметр обнаженных тел, вы делаете движения максимально плавными, скользкими и безумно возбуждающими.",
+    "sex_mask": "🎭 Надев на лицо кружевную маску, партнер отключает все мысли и полностью отдается вашей власти, принимая самые смелые и грязные фантазии в полумраке."
+}
+
 CARS_CAT = {
     "granta": {"name": "🚗 Lada Granta", "price": 50000, "base_speed": 40},
     "vesta": {"name": "🚗 Lada Vesta", "price": 120000, "base_speed": 60},
@@ -284,7 +294,9 @@ async def get_profile(user: types.User):
         "last_smoke_time": 0,
         "created_at": now,
         "marriage_time": 0,
-        "profile_music": ""
+        "profile_music": "",
+        "children_names": "Нет",
+        "family_deposit": 0
     }
     def _insert():
         return supabase.table("users").upsert(new_user).execute()
@@ -500,28 +512,14 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 await callback.answer()
 
         elif action == "race":
-            def _get_active():
-                return supabase.table("user_cars").select("*").eq("user_id", str(uid)).eq("is_active", True).execute()
-            active_res = await asyncio.to_thread(_get_active)
-            active_car = active_res.data[0] if active_res and active_res.data else None
-
-            text = "🏁 **УЛИЧНЫЕ ГОНКИ (PvP между игроками)**\n\n"
-            if not active_car:
-                text += "❌ У вас нет активной машины! Выберите машину в гараже."
-                kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🏎 Перейти в гараж", callback_data=f"menu_garage_{uid}")],
-                    [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
-                ])
-            else:
-                text += (
-                    f"🏎 Ваша машина: **{active_car['car_name']}** ({active_car['color']})\n"
-                    f"⚡ Тюнинг (Двиг {active_car['engine_lvl']} | Турбо {active_car['turbo_lvl']} | Руль {active_car['handling_lvl']})\n\n"
-                    f"🏆 Вы можете запустить стандартный заезд (ставка 1,000 🪙) или указать любую ставку через команду: `/race <ставка>` (например, `/race 5000`), ответив ей на сообщение соперника!"
-                )
-                kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🔥 Быстрый заезд (1,000 🪙)", callback_data="start_street_race")],
-                    [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
-                ])
+            text = (
+                "🏁 **УЛИЧНЫЕ ГОНКИ (PvP между игроками)**\n\n"
+                "🏆 Вы можете запустить стандартный заезд (ставка 1,000 🪙) или указать любую ставку через команду: `/race <ставка>` (например, `/race 5000`), ответив ей на сообщение соперника!"
+            )
+            kb = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="🔥 Быстрый заезд (1,000 🪙)", callback_data="start_street_race")],
+                [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
+            ])
             try:
                 await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
             except TelegramBadRequest:
@@ -629,15 +627,24 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             if pid and str(pid) != "0" and pname != "EMPTY":
                 m_time = int(p.get("marriage_time") or time.time())
                 md = format_age(int(time.time()) - m_time)
-                text = f"💍 **СЕМЕЙНЫЙ ОЧАГ:**\n\n💍 В браке с: **{pname}**\n⏳ Длительность брака: `{md}`"
+                children = p.get("children_names", "Нет")
+                deposit = p.get("family_deposit", 0)
+                text = (
+                    f"💍 **СЕМЕЙНЫЙ ОЧАГ И ИМУЩЕСТВО:**\n\n"
+                    f"💍 В браке с: **{pname}** (уже `{md}`)\n"
+                    f"👶 Дети: `{children}`\n"
+                    f"💰 Семейный вклад: `{deposit:,}` 🪙\n\n"
+                    f"👇 Управляйте своей семьей через кнопки ниже:"
+                )
                 kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🏡 Меню семьи", callback_data="family_main"),
-                     InlineKeyboardButton(text="🍑 Уединиться (/sex)", callback_data="action_sex_menu")],
-                    [InlineKeyboardButton(text="💔 Развестись (/divorce)", callback_data="action_divorce"),
+                    [InlineKeyboardButton(text="🍑 Уединиться (Секс)", callback_data="family_sex_select")],
+                    [InlineKeyboardButton(text="👶 Завести ребенка", callback_data="family_child_prompt"),
+                     InlineKeyboardButton(text="💰 Внести в бюджет", callback_data="family_deposit_prompt")],
+                    [InlineKeyboardButton(text="💔 Развестись", callback_data="action_divorce"),
                      InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
                 ])
             else:
-                text = f"💍 **ОТНОШЕНИЯ И СЕМЬЯ:**\n\n💍 Вы свободны. Сделайте предложение через реплай и `/marry`"
+                text = f"💍 **ОТНОШЕНИЯ И СЕМЬЯ:**\n\n💍 Вы свободны. Сделайте предложение любимому человеку через ответ на его сообщение и команду `/marry`"
                 kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
                 ])
@@ -1264,7 +1271,6 @@ async def cmd_race_custom(message: types.Message):
 
 @dp.callback_query(F.data == "start_street_race")
 async def start_street_race_callback(callback: types.CallbackQuery):
-    # Быстрый заезд со стандартной ставкой 1,000 из меню
     callback.message.text = "/race 1000"
     await cmd_race_custom(callback.message)
     await callback.answer()
@@ -1672,7 +1678,7 @@ async def cmd_duel(message: types.Message, state: FSMContext):
     winner = random.choices([user1, user2], weights=[score1, score2], k=1)[0]
     await message.answer(f"⚔️ **ДУЭЛЬ!**\n\n🏆 Победитель: **{winner.first_name}**! 🎉", parse_mode=ParseMode.MARKDOWN)
 
-# --- ОТНОШЕНИЯ, СЕМЬЯ И СЕКС ---
+# --- ОТНОШЕНИЯ, СЕМЬЯ И СЕКС (В СОБРАННОМ МЕНЮ) ---
 @dp.message(Command("marry"))
 async def cmd_marry(message: types.Message):
     if not message.reply_to_message:
@@ -1728,8 +1734,8 @@ async def process_divorce(user, message_obj, callback=None):
         return
         
     def _div():
-        supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY", "marriage_time": 0}).eq("user_id", uid).execute()
-        supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY", "marriage_time": 0}).eq("user_id", str(pid)).execute()
+        supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY", "marriage_time": 0, "children_names": "Нет", "family_deposit": 0}).eq("user_id", uid).execute()
+        supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY", "marriage_time": 0, "children_names": "Нет", "family_deposit": 0}).eq("user_id", str(pid)).execute()
     await asyncio.to_thread(_div)
     
     text = "💔 Вы успешно развелись."
@@ -1738,75 +1744,202 @@ async def process_divorce(user, message_obj, callback=None):
     else:
         await message_obj.answer(text)
 
-@dp.message(Command("sex"))
-async def cmd_sex(message: types.Message):
-    await handle_sex(message.from_user, message)
-
-@dp.callback_query(F.data == "action_sex_menu")
-async def callback_sex_menu(callback: types.CallbackQuery):
-    await handle_sex(callback.from_user, callback.message, callback=callback)
-
-async def handle_sex(user, message_obj, callback=None):
-    uid = str(user.id)
-    now = time.time()
-    if now - INTIMATE_COOLDOWNS.get(uid, 0) < 300:
-        rem = int(300 - (now - INTIMATE_COOLDOWNS.get(uid, 0)))
-        text = f"⏳ Вы слишком устали. Отдохните еще {rem // 60} мин. {rem % 60} сек."
-        if callback:
-            await callback.answer(text, show_alert=True)
-        else:
-            await message_obj.answer(text)
-        return
-
-    p = await get_profile(user)
-    pid = p.get("partner_id")
-    if not pid or str(pid) == "0":
-        text = "❌ У вас нет партнера! Сначала найдите вторую половинку через `/marry`."
-        if callback:
-            await callback.answer(text, show_alert=True)
-        else:
-            await message_obj.answer(text)
-        return
-
-    INTIMATE_COOLDOWNS[uid] = now
-    coins_bonus = random.randint(100, 400)
-    respect_bonus = 10
-    new_coins = p.get("coins", 0) + coins_bonus
-    new_resp = p.get("respect", 0) + respect_bonus
-
-    def _upd():
-        supabase.table("users").update({"coins": new_coins, "respect": new_resp}).eq("user_id", uid).execute()
-    await asyncio.to_thread(_upd)
-
-    text = f"🍑 Вы страстно уединились с **{p.get('partner_name')}**!\n\n💰 Получено: `+{coins_bonus}` 🪙\n❤️ Респект: `+{respect_bonus}`"
-    if callback:
-        await callback.message.answer(text, parse_mode=ParseMode.MARKDOWN)
-        await callback.answer("🔥 Страстная ночь!")
-    else:
-        await message_obj.answer(text, parse_mode=ParseMode.MARKDOWN)
-
-@dp.callback_query(F.data == "family_main")
-async def family_main_menu(callback: types.CallbackQuery):
+# Выбор игрушки для секса из меню семьи
+@dp.callback_query(F.data == "family_sex_select")
+async def family_sex_select(callback: types.CallbackQuery):
     uid = str(callback.from_user.id)
     p = await get_profile(callback.from_user)
-    pname = p.get("partner_name", "Свободен")
-    text = (
-        f"🏡 **СЕМЕЙНЫЙ ОЧАГ И ДЕТИ**\n\n"
-        f"💍 Партнер: **{pname}**\n"
-        f"👶 Дети: Функция в разработке\n"
-        f"💰 Семейный бюджет общий\n\n"
-        f"Используйте `/sex` для уединения или кнопки ниже:"
-    )
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🍑 Уединиться", callback_data="action_sex_menu")],
-        [InlineKeyboardButton(text="💔 Развестись", callback_data="action_divorce")],
-        [InlineKeyboardButton(text="🔙 Назад в меню", callback_data=f"back_home_{uid}")]
-    ])
+    pid = p.get("partner_id")
+    if not pid or str(pid) == "0":
+        await callback.answer("❌ У вас нет партнера!", show_alert=True)
+        return
+    
+    inv_str = p.get("inventory") or ""
+    items = [i.strip() for i in inv_str.split(",") if i.strip()]
+    sex_items = [(idx, item) for idx, item in enumerate(items) if item.startswith("sex_")]
+    
+    text = "🍑 **ВЫБОР ИГРУШКИ ДЛЯ СТРАСТИ**\n\nВыберите игрушку из инвентаря или переходите к класике:"
+    buttons = []
+    for idx, s_item in sex_items:
+        item_data = SEX_SHOP.get(s_item, {"name": s_item})
+        buttons.append([InlineKeyboardButton(text=f"🔥 Использовать: {item_data['name']}", callback_data=f"family_sex_do_{idx}_{s_item}")])
+    buttons.append([InlineKeyboardButton(text="🔥 Без игрушек (Классика)", callback_data="family_sex_do_none_none")])
+    buttons.append([InlineKeyboardButton(text="💍 Назад в меню семьи", callback_data=f"menu_marry_{uid}")])
+    
     try:
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+        await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
     await callback.answer()
+
+@dp.callback_query(F.data.startswith("family_sex_do_"))
+async def family_sex_execute(callback: types.CallbackQuery):
+    uid = str(callback.from_user.id)
+    now = time.time()
+    if now - INTIMATE_COOLDOWNS.get(uid, 0) < 300:
+        rem = int(300 - (now - INTIMATE_COOLDOWNS.get(uid, 0)))
+        await callback.answer(f"⏳ Вы слишком устали. Отдохните еще {rem // 60} мин. {rem % 60} сек.", show_alert=True)
+        return
+    
+    p = await get_profile(callback.from_user)
+    pid = p.get("partner_id")
+    if not pid or str(pid) == "0":
+        await callback.answer("❌ У вас нет партнера!", show_alert=True)
+        return
+    
+    parts = callback.data.split("_")
+    item_idx_str = parts[3]
+    item_key = "_".join(parts[4:])
+    
+    inv_str = p.get("inventory") or ""
+    items = [i.strip() for i in inv_str.split(",") if i.strip()]
+    
+    toy_desc = ""
+    if item_idx_str != "none" and item_idx_str.isdigit():
+        idx = int(item_idx_str)
+        if idx < len(items) and items[idx] == item_key:
+            items.pop(idx)
+            new_inv = ",".join(items)
+            supabase.table("users").update({"inventory": new_inv}).eq("user_id", uid).execute()
+            toy_desc = SEX_DESCRIPTIONS.get(item_key, "")
+    
+    INTIMATE_COOLDOWNS[uid] = now
+    xp_gain = random.randint(50, 120)
+    respect_gain = random.randint(15, 35)
+    
+    new_xp = p.get("xp", 0) + xp_gain
+    new_respect = p.get("respect", 0) + respect_gain
+    
+    new_level = p.get("level", 1)
+    for lvl, d in sorted(LEVELS.items(), key=lambda x: x[0]):
+        if new_xp >= d["xp"]: new_level = lvl
+    
+    supabase.table("users").update({
+        "xp": new_xp,
+        "respect": new_respect,
+        "level": new_level
+    }).eq("user_id", uid).execute()
+    
+    # Максимально пошлое, откровенное и подробное описание секса
+    vulgar_desc = (
+        f"🍑 **РАЗВУТНАЯ И СТРАСТНАЯ НОЧЬ С {p.get('partner_name').upper()}** 🍑\n\n"
+        f"Вы срываете друг с друга остатки одежды, обнажая жаждущие тела. Пул зычных стонов, горячее дыхание и неистовые прикосновения наполняют комнату. "
+        f"Вы грубо прижимаете партнера к постели, впиваясь губами в шею и оставляя багровые следы. Ритм нарастает до бешеной скорости, каждый толчок отдается сладкой судорогой по всему телу, приводя обоих к дикому, изнуряющему оргазму.\n\n"
+    )
+    if toy_desc:
+        vulgar_desc += f"{toy_desc}\n\n"
+    
+    vulgar_desc += f"✨ Получено опыта: `+{xp_gain} XP`\n❤️ Получено респекта: `+{respect_gain}`"
+    
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🔄 Повторить страсть", callback_data="family_sex_select")],
+        [InlineKeyboardButton(text="💍 В меню семьи", callback_data=f"menu_marry_{uid}")]
+    ])
+    try:
+        await callback.message.edit_text(vulgar_desc, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+    except TelegramBadRequest:
+        await callback.message.answer(vulgar_desc, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+    await callback.answer("🔥 Было безумно жарко!")
+
+# Меню добавления ребенка
+@dp.callback_query(F.data == "family_child_prompt")
+async def family_child_prompt(callback: types.CallbackQuery, state: FSMContext):
+    uid = str(callback.from_user.id)
+    p = await get_profile(callback.from_user)
+    if not p.get("partner_id") or str(p.get("partner_id")) == "0":
+        await callback.answer("❌ У вас нет партнера!", show_alert=True)
+        return
+    await state.set_state(FamilyState.waiting_for_child_name)
+    await callback.message.edit_text(
+        "👶 **РОЖДЕНИЕ РЕБЕНКА**\n\nВведите имя для вашего будущего ребенка следующим сообщением:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад в семью", callback_data=f"menu_marry_{uid}")]
+        ]),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    await callback.answer()
+
+@dp.message(FamilyState.waiting_for_child_name)
+async def process_child_name(message: types.Message, state: FSMContext):
+    name = message.text.strip()
+    if len(name) > 30:
+        await message.answer("❌ Имя слишком длинное! Введите короче:")
+        return
+    uid = str(message.from_user.id)
+    p = await get_profile(message.from_user)
+    pid = str(p.get("partner_id"))
+    
+    current_children = p.get("children_names", "Нет")
+    new_children = f"{current_children}, {name}" if current_children and current_children != "Нет" else name
+    
+    def _save_child():
+        supabase.table("users").update({"children_names": new_children}).eq("user_id", uid).execute()
+        if pid and pid != "0":
+            supabase.table("users").update({"children_names": new_children}).eq("user_id", pid).execute()
+    await asyncio.to_thread(_save_child)
+    await state.clear()
+    
+    await message.answer(
+        f"🎉 **ПОЗДРАВЛЯЕМ!** У вас родился ребенок по имени **{name}**! 👶🍼",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💍 В меню семьи", callback_data=f"menu_marry_{uid}")]
+        ]),
+        parse_mode=ParseMode.MARKDOWN
+    )
+
+# Меню пополнения семейного бюджета
+@dp.callback_query(F.data == "family_deposit_prompt")
+async def family_deposit_prompt(callback: types.CallbackQuery, state: FSMContext):
+    uid = str(callback.from_user.id)
+    p = await get_profile(callback.from_user)
+    if not p.get("partner_id") or str(p.get("partner_id")) == "0":
+        await callback.answer("❌ У вас нет партнера!", show_alert=True)
+        return
+    await state.set_state(FamilyState.waiting_for_deposit_amount)
+    await callback.message.edit_text(
+        f"💰 **СЕМЕЙНЫЙ БЮДЖЕТ**\n\nВаш баланс: `{p.get('coins', 0):,}` 🪙\nВведите сумму, которую хотите положить в общий семейный вклад:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад в семью", callback_data=f"menu_marry_{uid}")]
+        ]),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    await callback.answer()
+
+@dp.message(FamilyState.waiting_for_deposit_amount)
+async def process_deposit_amount(message: types.Message, state: FSMContext):
+    try:
+        amount = int(message.text.strip())
+        if amount <= 0:
+            raise ValueError()
+    except ValueError:
+        await message.answer("❌ Введите корректную сумму числом:")
+        return
+        
+    uid = str(message.from_user.id)
+    p = await get_profile(message.from_user)
+    if p.get("coins", 0) < amount:
+        await message.answer(f"❌ У вас недостаточно монет! На балансе `{p.get('coins', 0):,}` 🪙")
+        return
+        
+    new_coins = p.get("coins", 0) - amount
+    current_deposit = p.get("family_deposit", 0) or 0
+    new_deposit = current_deposit + amount
+    pid = str(p.get("partner_id"))
+    
+    def _save_dep():
+        supabase.table("users").update({"coins": new_coins, "family_deposit": new_deposit}).eq("user_id", uid).execute()
+        if pid and pid != "0":
+            supabase.table("users").update({"family_deposit": new_deposit}).eq("user_id", pid).execute()
+    await asyncio.to_thread(_save_dep)
+    await state.clear()
+    
+    await message.answer(
+        f"✅ Вы успешно внесли `{amount:,}` 🪙 в семейный бюджет!\n💰 Общий семейный вклад: `{new_deposit:,}` 🪙",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💍 В меню семьи", callback_data=f"menu_marry_{uid}")]
+        ]),
+        parse_mode=ParseMode.MARKDOWN
+    )
 
 # --- АДМИН-МЕНЮ И УНИВЕРСАЛЬНЫЕ АДМИН-КОМАНДЫ ---
 @dp.message(Command("admin"))
