@@ -29,6 +29,7 @@ supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 class FamilyState(StatesGroup):
     waiting_for_child_name = State()
     waiting_for_deposit_amount = State()
+    waiting_for_withdraw_amount = State()
 
 class ProfileState(StatesGroup):
     waiting_for_music = State()
@@ -109,7 +110,8 @@ LEVELS = {
 
 WORK_COOLDOWNS = {}
 INTIMATE_COOLDOWNS = {}
-RACE_COOLDOWNS = {}
+PENDING_MARRIAGES = {}
+PENDING_RACES = {}
 
 JOBS = {
     "1": {"name": "⛏ Шахтёр", "min_coins": 40, "max_coins": 90, "xp": 10},
@@ -154,11 +156,11 @@ SEX_SHOP = {
 SEX_DESCRIPTIONS = {
     "sex_vibe": "🟣 Вы включаете мощный вибратор на максимум, прижимая его к чувствительным точкам партнера. Комната наполняется громкими, сочными стонами, а тело партнера бьется в экстазе от непрерывных мощных вибраций.",
     "sex_gag": "🔴 Туго затянув кожаный кляп в рту партнера, вы лишаете его возможности кричать, оставляя лишь зычные всхлипы и сдавленные стоны, пока вы жестко и страстно берете его.",
-    "sex_cuff": "⛓️ Намертво приковав руки партнера металлическими наручниками к спинке кровати, вы полностью подчиняете его себе, оставляя беззащитным перед вашими дикими ласками и шлепками.",
+    "sex_cuff": "⛓️ Намертво приковав руки партнера металлическими наручниками к спинке кровати, вы полностью подчиняете себе, оставляя беззащитным перед вашими дикими ласками и шлепками.",
     "sex_maid": "👗 Облачив партнера в соблазнительный костюм горничной с кружевами, вы срываете наряд в первые же секунды, погружаясь в неистовую, развратную плотскую утеху.",
     "sex_whip": "🖤 Резкие и хлесткие удары кожаным хлыстом оставляют алые следы на разгоряченной коже, доводя уровень адреналина и животной страсти до абсолютного пика.",
     "sex_oil": "🧴 Щупая и втирая теплое массажное масло в каждый сантиметр обнаженных тел, вы делаете движения максимально плавными, скользкими и безумно возбуждающими.",
-    "sex_mask": "🎭 Надев на лицо кружевную маска, партнер отключает все мысли и полностью отдается вашей власти, принимая самые смелые и грязные фантазии в полумраке."
+    "sex_mask": "🎭 Надев на лицо кружевную маску, партнер отключает все мысли и полностью отдается вашей власти, принимая самые смелые и грязные фантазии в полумраке."
 }
 
 CARS_CAT = {
@@ -199,6 +201,24 @@ HOUSES_CAT = {
     "villa": {"name": "🏡 Элитная вилла с бассейном", "price": 2000000},
     "estate": {"name": "🏰 Поместье с парком", "price": 5000000},
     "palace": {"name": "👑 Королевский особняк", "price": 10000000},
+}
+
+FAMILY_HOUSES = {
+    "cottage": {"name": "🏡 Загородный коттедж", "price": 800000},
+    "villa": {"name": "🏡 Элитная вилла с бассейном", "price": 2000000},
+    "estate": {"name": "🏰 Поместье с парком", "price": 5000000},
+}
+
+FAMILY_APTS = {
+    "1k": {"name": "🏢 1-комнатная квартира", "price": 120000},
+    "3k": {"name": "🏢 3-комнатная в центре", "price": 350000},
+    "penthouse": {"name": "🏢 Элитный пентхаус", "price": 1200000},
+}
+
+FAMILY_CARS = {
+    "camry": {"name": "🚗 Toyota Camry", "price": 380000},
+    "rs6": {"name": "🏎 Audi RS6 Avant", "price": 1250000},
+    "chiron": {"name": "🏎 Bugatti Chiron", "price": 6000000},
 }
 
 def format_age(seconds: int) -> str:
@@ -294,9 +314,7 @@ async def get_profile(user: types.User):
         "last_smoke_time": 0,
         "created_at": now,
         "marriage_time": 0,
-        "profile_music": "",
-        "children_names": "Нет",
-        "family_deposit": 0
+        "profile_music": ""
     }
     def _insert():
         return supabase.table("users").upsert(new_user).execute()
@@ -307,6 +325,19 @@ async def get_profile(user: types.User):
     except Exception as e:
         logging.error(f"Supabase insert error: {e}")
     return new_user
+
+async def get_family(uid: str):
+    def _fetch():
+        r1 = supabase.table("families").select("*").eq("partner1_id", uid).execute()
+        if r1.data: return r1.data[0]
+        r2 = supabase.table("families").select("*").eq("partner2_id", uid).execute()
+        if r2.data: return r2.data[0]
+        return None
+    try:
+        return await asyncio.to_thread(_fetch)
+    except Exception as e:
+        logging.error(f"Error fetching family: {e}")
+    return None
 
 def get_main_keyboard(user_id: int):
     return InlineKeyboardMarkup(inline_keyboard=[
@@ -363,7 +394,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
 
         await state.clear()
         p = await get_profile(callback.from_user)
-        uid = callback.from_user.id
+        uid = str(callback.from_user.id)
         
         if action == "profile":
             lvl = p.get('level', 1)
@@ -373,7 +404,6 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             created_at = int(p.get("created_at") or time.time())
             bot_age = format_age(int(time.time()) - created_at)
             
-            # Статус брака ВЫЧИСЛЯЕТСЯ СТРОГО ИЗ СТРОКИ USERS
             if pid and str(pid) != "0" and pname and str(pname).upper() != "EMPTY":
                 m_time = int(p.get("marriage_time") or time.time())
                 marriage_duration = format_age(int(time.time()) - m_time)
@@ -388,7 +418,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             music_status = "🎵 Установлена" if p.get("profile_music") else "❌ Нет"
             
             def _get_car_and_prop():
-                car_res = supabase.table("user_cars").select("*").eq("user_id", str(uid)).eq("is_active", True).execute()
+                car_res = supabase.table("user_cars").select("*").eq("user_id", uid).eq("is_active", True).execute()
                 active_car = car_res.data[0] if car_res.data else None
                 return active_car
             active_car = await asyncio.to_thread(_get_car_and_prop)
@@ -487,7 +517,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
 
         elif action == "garage":
             def _get_cars():
-                return supabase.table("user_cars").select("*").eq("user_id", str(uid)).execute()
+                return supabase.table("user_cars").select("*").eq("user_id", uid).execute()
             cars_res = await asyncio.to_thread(_get_cars)
             user_cars = cars_res.data if cars_res and cars_res.data else []
 
@@ -515,11 +545,10 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
 
         elif action == "race":
             text = (
-                "🏁 **УЛИЧНЫЕ ГОНКИ (PvP между игроками)**\n\n"
-                "🏆 Вы можете запустить стандартный заезд (ставка 1,000 🪙) или указать любую ставку через команду: `/race <ставка>` (например, `/race 5000`), ответив ей на сообщение соперника!"
+                "🏁 **УЛИЧНЫЕ ГОНКИ (PvP по согласию)**\n\n"
+                "🏆 Чтобы бросить вызов сопернику, ответьте на его сообщение командой: `/race <ставка>` (например, `/race 5000`). Сопернику придет кнопка подтверждения."
             )
             kb = InlineKeyboardMarkup(inline_keyboard=[
-                [InlineKeyboardButton(text="🔥 Быстрый заезд (1,000 🪙)", callback_data="start_street_race")],
                 [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
             ])
             try:
@@ -626,23 +655,37 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             
         elif action == "marry":
             pid, pname = p.get("partner_id"), p.get("partner_name")
-            # Проверка брака СТРОГО ИЗ СТРОКИ USERS:
             if pid and str(pid) != "0" and pname and str(pname).upper() != "EMPTY":
+                fam = await get_family(uid)
+                budget = fam.get("budget", 0) if fam else 0
+                food = fam.get("food", 100) if fam else 100
+                house = fam.get("house", "❌ Нет") if fam else "❌ Нет"
+                apartment = fam.get("apartment", "❌ Нет") if fam else "❌ Нет"
+                car = fam.get("car", "❌ Нет") if fam else "❌ Нет"
+                child_name = fam.get("child_name", "❌ Нет") if fam else "❌ Нет"
+                child_hunger = fam.get("child_hunger", 100) if fam else 100
+
                 m_time = int(p.get("marriage_time") or time.time())
                 md = format_age(int(time.time()) - m_time)
-                children = p.get("children_names", "Нет")
-                deposit = p.get("family_deposit", 0)
+                
                 text = (
                     f"💍 **СЕМЕЙНЫЙ ОЧАГ И ИМУЩЕСТВО:**\n\n"
                     f"💍 В браке с: **{pname}** (уже `{md}`)\n"
-                    f"👶 Дети: `{children}`\n"
-                    f"💰 Семейный вклад: `{deposit:,}` 🪙\n\n"
+                    f"💰 Семейный бюджет: `{budget:,}` 🪙\n"
+                    f"🍖 Еда: `{food}`\n"
+                    f"🏡 Дом: `{house}`\n"
+                    f"🏢 Квартира: `{apartment}`\n"
+                    f"🚗 Машина семьи: `{car}`\n"
+                    f"👶 Ребенок: `{child_name}` (Голод: `{child_hunger}`)\n\n"
                     f"👇 Управляйте своей семьей через кнопки ниже:"
                 )
                 kb = InlineKeyboardMarkup(inline_keyboard=[
                     [InlineKeyboardButton(text="🍑 Уединиться (Секс)", callback_data="family_sex_select")],
                     [InlineKeyboardButton(text="👶 Завести ребенка", callback_data="family_child_prompt"),
-                     InlineKeyboardButton(text="💰 Внести в бюджет", callback_data="family_deposit_prompt")],
+                     InlineKeyboardButton(text="🍖 Покормить ребенка", callback_data="family_feed_child")],
+                    [InlineKeyboardButton(text="💰 Внести в бюджет", callback_data=f"family_deposit_prompt"),
+                     InlineKeyboardButton(text="💸 Снять с бюджета", callback_data=f"family_withdraw_prompt")],
+                    [InlineKeyboardButton(text="🛒 Семейный магазин", callback_data=f"family_shop_menu")],
                     [InlineKeyboardButton(text="💔 Развестись", callback_data="action_divorce"),
                      InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
                 ])
@@ -708,13 +751,11 @@ async def process_support_message(message: types.Message, state: FSMContext):
         [InlineKeyboardButton(text="💬 Ответить", callback_data=f"reply_supp_{sender.id}")]
     ])
     
-    sent_count = 0
     for admin_username in ADMIN_USERNAMES:
         p = await get_profile_by_username(admin_username)
         if p and p.get("user_id"):
             try:
                 await bot.send_message(chat_id=int(p["user_id"]), text=admin_text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-                sent_count += 1
             except Exception as e:
                 logging.error(f"Failed to send support ticket to admin {admin_username}: {e}")
                 
@@ -1259,139 +1300,104 @@ async def set_car_color(callback: types.CallbackQuery):
     callback.data = f"car_tune_{car_id}"
     await car_tune_menu(callback)
 
-# --- УЛИЧНЫЕ ГОНКИ (КАСТОМНЫЕ СТАВКИ И ВЫЗОВЫ) ---
+# --- УЛИЧНЫЕ ГОНКИ (ПО СОГЛАСИЮ) ---
 @dp.message(Command("race"))
-async def cmd_race_custom(message: types.Message):
+async def cmd_race(message: types.Message):
+    if not message.reply_to_message:
+        await message.answer("❌ Ответьте на сообщение соперника командой `/race <ставка>`, чтобы бросить ему вызов по согласию.", parse_mode=ParseMode.MARKDOWN)
+        return
     args = message.text.split()
-    uid = str(message.from_user.id)
-    p = await get_profile(message.from_user)
-    
     if len(args) < 2:
-        await message.answer("❌ Использование: `/race <ставка>` (например, `/race 5000`). Ответьте этой командой на сообщение соперника, чтобы бросить ему вызов!", parse_mode=ParseMode.MARKDOWN)
+        await message.answer("❌ Укажите ставку: `/race <ставка>`", parse_mode=ParseMode.MARKDOWN)
         return
     try:
         bet = int(args[1])
-        if bet <= 0:
-            raise ValueError()
+        if bet <= 0: raise ValueError()
     except ValueError:
-        await message.answer("❌ Неверная сумма ставки!", parse_mode=ParseMode.MARKDOWN)
+        await message.answer("❌ Неверная ставка!")
         return
-
-    if p.get("coins", 0) < bet:
-        await message.answer(f"❌ Недостаточно монет! У вас на балансе `{p.get('coins', 0):,}` 🪙", parse_mode=ParseMode.MARKDOWN)
-        return
-
-    now = time.time()
-    if now - RACE_COOLDOWNS.get(uid, 0) < 30:
-        rem = int(30 - (now - RACE_COOLDOWNS.get(uid, 0)))
-        await message.answer(f"⏳ Ваша машина остывает после гонки. Подождите {rem} сек.", parse_mode=ParseMode.MARKDOWN)
-        return
-
-    def _get_active():
-        return supabase.table("user_cars").select("*").eq("user_id", uid).eq("is_active", True).execute()
-    res = await asyncio.to_thread(_get_active)
-    if not res.data:
-        await message.answer("❌ У вас нет активной машины! Выберите ее в гараже через меню.", parse_mode=ParseMode.MARKDOWN)
-        return
-    my_car = res.data[0]
-
-    if message.reply_to_message:
-        target_user = message.reply_to_message.from_user
-        target_id = str(target_user.id)
-        if target_id == uid:
-            await message.answer("❌ Нельзя бросить вызов самому себе!")
-            return
-        if target_user.is_bot:
-            await message.answer("❌ Нельзя соревноваться с ботом!")
-            return
         
-        p_target = await get_profile_by_id(target_id)
-        if not p_target or p_target.get("coins", 0) < bet:
-            await message.answer(f"❌ У соперника **{target_user.first_name}** недостаточно монет для такой ставки ({bet:,} 🪙)!", parse_mode=ParseMode.MARKDOWN)
-            return
+    challenger = message.from_user
+    target = message.reply_to_message.from_user
+    if challenger.id == target.id:
+        await message.answer("❌ Нельзя соревноваться с самим собой!")
+        return
+    if target.is_bot:
+        await message.answer("❌ Нельзя соревноваться с ботом!")
+        return
+        
+    p1 = await get_profile(challenger)
+    if p1.get("coins", 0) < bet:
+        await message.answer("❌ У вас недостаточно монет для такой ставки!")
+        return
+        
+    PENDING_RACES[str(target.id)] = {"challenger_id": str(challenger.id), "bet": bet}
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🏁 Принять гонку", callback_data="race_accept"),
+         InlineKeyboardButton(text="❌ Отклонить", callback_data="race_decline")]
+    ])
+    await message.answer(f"🏁 **{target.first_name}**, вас вызвали на уличную гонку со ставкой `{bet:,}` 🪙 от **{challenger.first_name}**!", reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
 
-        def _get_target_car():
-            return supabase.table("user_cars").select("*").eq("user_id", target_id).eq("is_active", True).execute()
-        t_car_res = await asyncio.to_thread(_get_target_car)
-        if not t_car_res.data:
-            await message.answer(f"❌ У соперника **{target_user.first_name}** нет активной машины в гараже!", parse_mode=ParseMode.MARKDOWN)
-            return
-        opponent_car = t_car_res.data[0]
-        opp_username = target_user.first_name
-        target_coins = p_target.get("coins", 0)
-    else:
-        def _get_opponents():
-            return supabase.table("user_cars").select("*").eq("is_active", True).neq("user_id", uid).execute()
-        opp_res = await asyncio.to_thread(_get_opponents)
-        if not opp_res.data:
-            await message.answer("❌ Сейчас нет других игроков с активными машинами в сети! Пригласите друзей в бота.", parse_mode=ParseMode.MARKDOWN)
-            return
-        opponent_car = random.choice(opp_res.data)
-        target_id = opponent_car["user_id"]
-        def _get_opp_user():
-            return supabase.table("users").select("username, coins").eq("user_id", target_id).execute()
-        opp_user_res = await asyncio.to_thread(_get_opp_user)
-        opp_data = opp_user_res.data[0] if opp_user_res.data else {"username": "Игрок", "coins": 5000000}
-        opp_username = opp_data["username"]
-        target_coins = opp_data["coins"]
-        if target_coins < bet:
-            await message.answer(f"❌ У соперника недостаточно монет для ставки {bet:,} 🪙", parse_mode=ParseMode.MARKDOWN)
-            return
+@dp.callback_query(F.data == "race_accept")
+async def race_accept(callback: types.CallbackQuery):
+    target_id = str(callback.from_user.id)
+    data = PENDING_RACES.get(target_id)
+    if not data:
+        await callback.answer("❌ Вызов устарел!", show_alert=True)
+        return
+    challenger_id = data["challenger_id"]
+    bet = data["bet"]
+    
+    p_challenger = await get_profile_by_id(challenger_id)
+    p_target = await get_profile_by_id(target_id)
+    if p_challenger["coins"] < bet or p_target["coins"] < bet:
+        await callback.answer("❌ У кого-то из участников не хватает монет!", show_alert=True)
+        return
+        
+    def _get_car(uid):
+        res = supabase.table("user_cars").select("*").eq("user_id", uid).eq("is_active", True).execute()
+        return res.data[0] if res.data else None
+    car1 = _get_car(challenger_id)
+    car2 = _get_car(target_id)
+    if not car1 or not car2:
+        await callback.answer("❌ У одного из участников нет активной машины в гараже!", show_alert=True)
+        return
+        
+    power1 = CARS_CAT.get(car1["car_key"], {}).get("base_speed", 50) + car1["engine_lvl"]*15
+    power2 = CARS_CAT.get(car2["car_key"], {}).get("base_speed", 50) + car2["engine_lvl"]*15
+    
+    win_challenger = power1 >= power2
+    winner_id = challenger_id if win_challenger else target_id
+    
+    xp_gain = max(2, int(bet / 5000))
+    
+    def _execute_race():
+        supabase.table("users").update({"coins": p_challenger["coins"] - bet}).eq("user_id", challenger_id).execute()
+        supabase.table("users").update({"coins": p_target["coins"] - bet}).eq("user_id", target_id).execute()
+        
+        w_p = p_challenger if win_challenger else p_target
+        new_xp = w_p["xp"] + xp_gain
+        new_level = w_p["level"]
+        for lvl, d in sorted(LEVELS.items(), key=lambda x: x[0]):
+            if new_xp >= d["xp"]: new_level = lvl
+            
+        supabase.table("users").update({
+            "coins": w_p["coins"] + bet * 2,
+            "xp": new_xp,
+            "level": new_level
+        }).eq("user_id", winner_id).execute()
+    await asyncio.to_thread(_execute_race)
+    
+    PENDING_RACES.pop(target_id, None)
+    w_name = p_challenger["username"] if win_challenger else p_target["username"]
+    await callback.message.edit_text(f"🏁 **ГОНКА ЗАВЕРШЕНА!**\n\n🏆 Победитель: **{w_name}**!\n💰 Выигрыш: `+{bet*2:,}` 🪙\n✨ Опыт: `+{xp_gain} XP`", parse_mode=ParseMode.MARKDOWN)
+    await callback.answer("Гонка завершена!")
 
-    RACE_COOLDOWNS[uid] = now
-
-    my_base = CARS_CAT.get(my_car["car_key"], {}).get("base_speed", 50)
-    my_power = my_base + (my_car["engine_lvl"] * 15) + (my_car["turbo_lvl"] * 25) + (my_car["handling_lvl"] * 10)
-
-    opp_base = CARS_CAT.get(opponent_car["car_key"], {}).get("base_speed", 50)
-    opp_power = opp_base + (opponent_car["engine_lvl"] * 15) + (opponent_car["turbo_lvl"] * 25) + (opponent_car["handling_lvl"] * 10)
-
-    win = my_power >= opp_power
-
-    my_new_coins = p.get("coins", 0) - bet
-    target_new_coins = target_coins - bet
-
-    if win:
-        reward = bet * 2
-        my_new_coins += reward
-        xp_gain = max(20, int(bet / 500))
-        new_xp = p.get("xp", 0) + xp_gain
-        result_text = (
-            f"🏁 **ПОБЕДА В УЛИЧНОЙ ГОНКЕ!** 🎉\n\n"
-            f"🏎 Ваша машина: **{my_car['car_name']}** ({my_car['color']})\n"
-            f"🚗 Соперник (**{opp_username}**): **{opponent_car['car_name']}** ({opponent_car['color']})\n"
-            f"💵 Ставка: `{bet:,}` 🪙\n\n"
-            f"💰 Выигрыш: `+{reward:,}` 🪙\n"
-            f"✨ Опыт: `+{xp_gain} XP`"
-        )
-    else:
-        target_new_coins += bet * 2
-        xp_gain = 10
-        new_xp = p.get("xp", 0) + xp_gain
-        result_text = (
-            f"🏁 **ПОРАЖЕНИЕ В ГОНКЕ...** 💨\n\n"
-            f"🏎 Ваша машина: **{my_car['car_name']}** ({my_car['color']})\n"
-            f"🚗 Соперник (**{opp_username}**): **{opponent_car['car_name']}** ({opponent_car['color']})\n\n"
-            f"💸 Ставка проиграна: `-{bet:,}` 🪙\n"
-            f"✨ Опыт утешения: `+10 XP`"
-        )
-
-    new_level = p.get("level", 1)
-    for lvl, d in sorted(LEVELS.items(), key=lambda x: x[0]):
-        if new_xp >= d["xp"]: new_level = lvl
-
-    def _save_race():
-        supabase.table("users").update({"coins": my_new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute()
-        supabase.table("users").update({"coins": target_new_coins}).eq("user_id", str(target_id)).execute()
-    await asyncio.to_thread(_save_race)
-
-    await message.answer(result_text, parse_mode=ParseMode.MARKDOWN)
-
-@dp.callback_query(F.data == "start_street_race")
-async def start_street_race_callback(callback: types.CallbackQuery):
-    callback.message.text = "/race 1000"
-    await cmd_race_custom(callback.message)
-    await callback.answer()
+@dp.callback_query(F.data == "race_decline")
+async def race_decline(callback: types.CallbackQuery):
+    PENDING_RACES.pop(str(callback.from_user.id), None)
+    await callback.message.edit_text("❌ Вызов на гонку отклонен.")
+    await callback.answer("Отклонено")
 
 # --- МАГАЗИНЫ И ИМУЩЕСТВО ---
 @dp.callback_query(F.data.startswith("shop_eq_list_"))
@@ -1800,12 +1806,12 @@ async def cmd_duel(message: types.Message, state: FSMContext):
 @dp.message(Command("marry"))
 async def cmd_marry(message: types.Message):
     if not message.reply_to_message:
-        await message.answer("💍 Чтобы сделать предложение, ответьте на сообщение любимого человека командой `/marry`", parse_mode=ParseMode.MARKDOWN)
+        await message.answer("💍 Ответьте на сообщение игрока командой `/marry`, чтобы сделать предложение о браке!", parse_mode=ParseMode.MARKDOWN)
         return
     user1 = message.from_user
     user2 = message.reply_to_message.from_user
     if user1.id == user2.id:
-        await message.answer("❌ Нельзя жениться на самом себе!")
+        await message.answer("❌ Нельзя жениться на себе!")
         return
     if user2.is_bot:
         await message.answer("❌ Нельзя жениться на боте!")
@@ -1815,19 +1821,59 @@ async def cmd_marry(message: types.Message):
     p2 = await get_profile(user2)
     
     if p1.get("partner_id") and str(p1.get("partner_id")) != "0" and p1.get("partner_name") != "EMPTY":
-        await message.answer("❌ Вы уже состоите в браке! Сначала разведитесь.")
+        await message.answer("❌ Вы уже состоите в браке!")
         return
     if p2.get("partner_id") and str(p2.get("partner_id")) != "0" and p2.get("partner_name") != "EMPTY":
         await message.answer("❌ Этот игрок уже состоит в браке!")
         return
         
-    now = int(time.time())
-    def _marry():
-        supabase.table("users").update({"partner_id": str(user2.id), "partner_name": user2.first_name, "marriage_time": now}).eq("user_id", str(user1.id)).execute()
-        supabase.table("users").update({"partner_id": str(user1.id), "partner_name": user1.first_name, "marriage_time": now}).eq("user_id", str(user2.id)).execute()
-    await asyncio.to_thread(_marry)
+    PENDING_MARRIAGES[str(user2.id)] = str(user1.id)
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💍 Принять", callback_data=f"marry_accept_{user1.id}"),
+         InlineKeyboardButton(text="💔 Отклонить", callback_data="marry_decline")]
+    ])
+    await message.answer(f"💍 **{user2.first_name}**, вам сделали предложение от **{user1.first_name}**!", reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+
+@dp.callback_query(F.data.startswith("marry_accept_"))
+async def marry_accept(callback: types.CallbackQuery):
+    target_id = callback.data.split("_")[2]
+    user2_id = str(callback.from_user.id)
+    if PENDING_MARRIAGES.get(user2_id) != target_id:
+        await callback.answer("❌ Предложение неактуально!", show_alert=True)
+        return
+        
+    p1 = await get_profile_by_id(target_id)
+    p2 = await get_profile_by_id(user2_id)
     
-    await message.answer(f"💍 **ПОЗДРАВЛЯЕМ!** 🎉\n\n**{user1.first_name}** и **{user2.first_name}** официально заключили брак! Любви и счастья молодой семье!", parse_mode=ParseMode.MARKDOWN)
+    now = int(time.time())
+    family_data = {
+        "partner1_id": target_id,
+        "partner2_id": user2_id,
+        "budget": 0,
+        "food": 100,
+        "house": "❌ Нет",
+        "apartment": "❌ Нет",
+        "car": "❌ Нет",
+        "child_name": "❌ Нет",
+        "child_hunger": 100,
+        "child_birth_time": now
+    }
+    def _ins():
+        supabase.table("users").update({"partner_id": user2_id, "partner_name": p2["username"], "marriage_time": now}).eq("user_id", target_id).execute()
+        supabase.table("users").update({"partner_id": target_id, "partner_name": p1["username"], "marriage_time": now}).eq("user_id", user2_id).execute()
+        supabase.table("families").insert(family_data).execute()
+    await asyncio.to_thread(_ins)
+    PENDING_MARRIAGES.pop(user2_id, None)
+    
+    await callback.message.edit_text(f"💍 **ПОЗДРАВЛЯЕМ!** 🎉\n\n**{p1['username']}** и **{p2['username']}** официально заключили брак!", parse_mode=ParseMode.MARKDOWN)
+    await callback.answer("💍 Брак заключен!")
+
+@dp.callback_query(F.data == "marry_decline")
+async def marry_decline(callback: types.CallbackQuery):
+    user2_id = str(callback.from_user.id)
+    PENDING_MARRIAGES.pop(user2_id, None)
+    await callback.message.edit_text("💔 Предложение было отклонено.")
+    await callback.answer("Отклонено")
 
 @dp.message(Command("divorce"))
 async def cmd_divorce_msg(message: types.Message):
@@ -1845,22 +1891,19 @@ async def process_divorce(user, message_obj, callback=None):
     p = await get_profile(user)
     pid = p.get("partner_id")
     if not pid or str(pid) == "0" or p.get("partner_name") == "EMPTY":
-        if callback:
-            await callback.answer("❌ Вы не состоите в браке!", show_alert=True)
-        else:
-            await message_obj.answer("❌ Вы не состоите в браке!")
+        if callback: await callback.answer("❌ Вы не в браке!", show_alert=True)
+        else: await message_obj.answer("❌ Вы не в браке!")
         return
         
     def _div():
-        supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY", "marriage_time": 0, "children_names": "Нет", "family_deposit": 0}).eq("user_id", uid).execute()
-        supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY", "marriage_time": 0, "children_names": "Нет", "family_deposit": 0}).eq("user_id", str(pid)).execute()
+        supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY", "marriage_time": 0}).eq("user_id", uid).execute()
+        supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY", "marriage_time": 0}).eq("user_id", str(pid)).execute()
+        supabase.table("families").delete().or_(f"partner1_id.eq.{uid},partner2_id.eq.{uid}").execute()
     await asyncio.to_thread(_div)
     
     text = "💔 Вы успешно развелись."
-    if callback:
-        await callback.answer(text, show_alert=True)
-    else:
-        await message_obj.answer(text)
+    if callback: await callback.answer(text, show_alert=True)
+    else: await message_obj.answer(text)
 
 @dp.callback_query(F.data == "family_sex_select")
 async def family_sex_select(callback: types.CallbackQuery):
@@ -1875,13 +1918,13 @@ async def family_sex_select(callback: types.CallbackQuery):
     items = [i.strip() for i in inv_str.split(",") if i.strip()]
     sex_items = [(idx, item) for idx, item in enumerate(items) if item.startswith("sex_")]
     
-    text = "🍑 **ВЫБОР ИГРУШКИ ДЛЯ СТРАСТИ**\n\nВыберите игрушку из инвентаря или переходите к классике:"
+    text = "🍑 **ВЫБОР ИГРУШКИ ДЛЯ СТРАСТИ**\n\nВыберите игрушку из инвентаря или классику:"
     buttons = []
     for idx, s_item in sex_items:
         item_data = SEX_SHOP.get(s_item, {"name": s_item})
-        buttons.append([InlineKeyboardButton(text=f"🔥 Использовать: {item_data['name']}", callback_data=f"family_sex_do_{idx}_{s_item}")])
+        buttons.append([InlineKeyboardButton(text=f"🔥 {item_data['name']}", callback_data=f"family_sex_do_{idx}_{s_item}")])
     buttons.append([InlineKeyboardButton(text="🔥 Без игрушек (Классика)", callback_data="family_sex_do_none_none")])
-    buttons.append([InlineKeyboardButton(text="💍 Назад в меню семьи", callback_data=f"menu_marry_{uid}")])
+    buttons.append([InlineKeyboardButton(text="💍 Назад в семью", callback_data=f"menu_marry_{uid}")])
     
     try:
         await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
@@ -1895,7 +1938,7 @@ async def family_sex_execute(callback: types.CallbackQuery):
     now = time.time()
     if now - INTIMATE_COOLDOWNS.get(uid, 0) < 300:
         rem = int(300 - (now - INTIMATE_COOLDOWNS.get(uid, 0)))
-        await callback.answer(f"⏳ Вы слишком устали. Отдохните еще {rem // 60} мин. {rem % 60} сек.", show_alert=True)
+        await callback.answer(f"⏳ Отдохните еще {rem // 60} мин. {rem % 60} сек.", show_alert=True)
         return
     
     p = await get_profile(callback.from_user)
@@ -1960,9 +2003,12 @@ async def family_sex_execute(callback: types.CallbackQuery):
 @dp.callback_query(F.data == "family_child_prompt")
 async def family_child_prompt(callback: types.CallbackQuery, state: FSMContext):
     uid = str(callback.from_user.id)
-    p = await get_profile(callback.from_user)
-    if not p.get("partner_id") or str(p.get("partner_id")) == "0" or p.get("partner_name") == "EMPTY":
-        await callback.answer("❌ У вас нет партнера!", show_alert=True)
+    fam = await get_family(uid)
+    if not fam:
+        await callback.answer("❌ У вас нет семьи!", show_alert=True)
+        return
+    if fam.get("child_name") and fam.get("child_name") != "❌ Нет":
+        await callback.answer("❌ У вас уже есть ребенок!", show_alert=True)
         return
     await state.set_state(FamilyState.waiting_for_child_name)
     await callback.message.edit_text(
@@ -1981,17 +2027,11 @@ async def process_child_name(message: types.Message, state: FSMContext):
         await message.answer("❌ Имя слишком длинное! Введите короче:")
         return
     uid = str(message.from_user.id)
-    p = await get_profile(message.from_user)
-    pid = str(p.get("partner_id"))
-    
-    current_children = p.get("children_names", "Нет")
-    new_children = f"{current_children}, {name}" if current_children and current_children != "Нет" else name
-    
-    def _save_child():
-        supabase.table("users").update({"children_names": new_children}).eq("user_id", uid).execute()
-        if pid and pid != "0":
-            supabase.table("users").update({"children_names": new_children}).eq("user_id", pid).execute()
-    await asyncio.to_thread(_save_child)
+    fam = await get_family(uid)
+    if fam:
+        def _save_child():
+            supabase.table("families").update({"child_name": name, "child_hunger": 100}).eq("family_id", fam["family_id"]).execute()
+        await asyncio.to_thread(_save_child)
     await state.clear()
     
     await message.answer(
@@ -2002,16 +2042,40 @@ async def process_child_name(message: types.Message, state: FSMContext):
         parse_mode=ParseMode.MARKDOWN
     )
 
+@dp.callback_query(F.data == "family_feed_child")
+async def family_feed_child(callback: types.CallbackQuery):
+    uid = str(callback.from_user.id)
+    fam = await get_family(uid)
+    if not fam or fam.get("child_name") == "❌ Нет":
+        await callback.answer("❌ У вас нет ребенка!", show_alert=True)
+        return
+    if fam.get("child_hunger", 100) >= 100:
+        await callback.answer("👶 Ребенок уже сыт!", show_alert=True)
+        return
+    if fam.get("food", 0) < 10:
+        await callback.answer("❌ В семье закончилась еда! Купите еду в семейном магазине.", show_alert=True)
+        return
+        
+    new_food = fam["food"] - 10
+    new_hunger = min(100, fam["child_hunger"] + 30)
+    def _feed():
+        supabase.table("families").update({"food": new_food, "child_hunger": new_hunger}).eq("family_id", fam["family_id"]).execute()
+    await asyncio.to_thread(_feed)
+    await callback.answer(f"🍖 Вы покормили ребенка! Сытость: {new_hunger} (Еда семьи: {new_food})", show_alert=True)
+    callback.data = f"menu_marry_{uid}"
+    await callback_main_menu(callback, None)
+
 @dp.callback_query(F.data == "family_deposit_prompt")
 async def family_deposit_prompt(callback: types.CallbackQuery, state: FSMContext):
     uid = str(callback.from_user.id)
-    p = await get_profile(callback.from_user)
-    if not p.get("partner_id") or str(p.get("partner_id")) == "0" or p.get("partner_name") == "EMPTY":
-        await callback.answer("❌ У вас нет партнера!", show_alert=True)
+    fam = await get_family(uid)
+    if not fam:
+        await callback.answer("❌ Вы не в браке!", show_alert=True)
         return
+    p = await get_profile(callback.from_user)
     await state.set_state(FamilyState.waiting_for_deposit_amount)
     await callback.message.edit_text(
-        f"💰 **СЕМЕЙНЫЙ БЮДЖЕТ**\n\nВаш баланс: `{p.get('coins', 0):,}` 🪙\nВведите сумму, которую хотите положить в общий семейный вклад:",
+        f"💰 **СЕМЕЙНЫЙ БЮДЖЕТ**\n\nВаш баланс: `{p.get('coins', 0):,}` 🪙\nВведите сумму, которую хотите положить в общий семейный бюджет:",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔙 Назад в семью", callback_data=f"menu_marry_{uid}")]
         ]),
@@ -2023,8 +2087,7 @@ async def family_deposit_prompt(callback: types.CallbackQuery, state: FSMContext
 async def process_deposit_amount(message: types.Message, state: FSMContext):
     try:
         amount = int(message.text.strip())
-        if amount <= 0:
-            raise ValueError()
+        if amount <= 0: raise ValueError()
     except ValueError:
         await message.answer("❌ Введите корректную сумму числом:")
         return
@@ -2035,25 +2098,157 @@ async def process_deposit_amount(message: types.Message, state: FSMContext):
         await message.answer(f"❌ У вас недостаточно монет! На балансе `{p.get('coins', 0):,}` 🪙")
         return
         
+    fam = await get_family(uid)
+    if not fam:
+        await message.answer("❌ Семья не найдена!")
+        await state.clear()
+        return
+
     new_coins = p.get("coins", 0) - amount
-    current_deposit = p.get("family_deposit", 0) or 0
-    new_deposit = current_deposit + amount
-    pid = str(p.get("partner_id"))
+    new_budget = fam.get("budget", 0) + amount
     
     def _save_dep():
-        supabase.table("users").update({"coins": new_coins, "family_deposit": new_deposit}).eq("user_id", uid).execute()
-        if pid and pid != "0":
-            supabase.table("users").update({"family_deposit": new_deposit}).eq("user_id", pid).execute()
+        supabase.table("users").update({"coins": new_coins}).eq("user_id", uid).execute()
+        supabase.table("families").update({"budget": new_budget}).eq("family_id", fam["family_id"]).execute()
     await asyncio.to_thread(_save_dep)
     await state.clear()
     
     await message.answer(
-        f"✅ Вы успешно внесли `{amount:,}` 🪙 в семейный бюджет!\n💰 Общий семейный вклад: `{new_deposit:,}` 🪙",
+        f"✅ Вы успешно внесли `{amount:,}` 🪙 в семейный бюджет!\n💰 Общий семейный бюджет: `{new_budget:,}` 🪙",
         reply_markup=InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="💍 В меню семьи", callback_data=f"menu_marry_{uid}")]
         ]),
         parse_mode=ParseMode.MARKDOWN
     )
+
+@dp.callback_query(F.data == "family_withdraw_prompt")
+async def family_withdraw_prompt(callback: types.CallbackQuery, state: FSMContext):
+    uid = str(callback.from_user.id)
+    fam = await get_family(uid)
+    if not fam:
+        await callback.answer("❌ Вы не в браке!", show_alert=True)
+        return
+    await state.set_state(FamilyState.waiting_for_withdraw_amount)
+    await callback.message.edit_text(
+        f"💸 **СНЯТИЕ С БЮДЖЕТА**\n\nСемейный бюджет: `{fam.get('budget', 0):,}` 🪙\nВведите сумму для снятия:",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🔙 Назад в семью", callback_data=f"menu_marry_{uid}")]
+        ]),
+        parse_mode=ParseMode.MARKDOWN
+    )
+    await callback.answer()
+
+@dp.message(FamilyState.waiting_for_withdraw_amount)
+async def process_withdraw_amount(message: types.Message, state: FSMContext):
+    try:
+        amount = int(message.text.strip())
+        if amount <= 0: raise ValueError()
+    except ValueError:
+        await message.answer("❌ Введите корректную сумму числом:")
+        return
+        
+    uid = str(message.from_user.id)
+    fam = await get_family(uid)
+    if not fam or fam.get("budget", 0) < amount:
+        await message.answer("❌ В семейном бюджете недостаточно средств!")
+        return
+        
+    p = await get_profile(message.from_user)
+    new_coins = p.get("coins", 0) + amount
+    new_budget = fam.get("budget", 0) - amount
+    
+    def _save_wd():
+        supabase.table("users").update({"coins": new_coins}).eq("user_id", uid).execute()
+        supabase.table("families").update({"budget": new_budget}).eq("family_id", fam["family_id"]).execute()
+    await asyncio.to_thread(_save_wd)
+    await state.clear()
+    
+    await message.answer(
+        f"✅ Вы сняли `{amount:,}` 🪙 из семейного бюджета в свой кошелек!",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="💍 В меню семьи", callback_data=f"menu_marry_{uid}")]
+        ]),
+        parse_mode=ParseMode.MARKDOWN
+    )
+
+@dp.callback_query(F.data == "family_shop_menu")
+async def family_shop_menu(callback: types.CallbackQuery):
+    uid = str(callback.from_user.id)
+    fam = await get_family(uid)
+    if not fam:
+        await callback.answer("❌ Семья не найдена!", show_alert=True)
+        return
+    text = (
+        f"🛒 **СЕМЕЙНЫЙ МАГАЗИН ИМУЩЕСТВА**\n"
+        f"💰 Бюджет семьи: `{fam.get('budget', 0):,}` 🪙\n\n"
+        f"Покупайте имущество в общую собственность за счет семейного бюджета:"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🏡 Купить Коттедж (800k)", callback_data="fam_buy_house_cottage")],
+        [InlineKeyboardButton(text="🏰 Купить Поместье (5M)", callback_data="fam_buy_house_estate")],
+        [InlineKeyboardButton(text="🏢 Купить Пентхаус (1.2M)", callback_data="fam_buy_apt_penthouse")],
+        [InlineKeyboardButton(text="🏎 Купить Supercar (6M)", callback_data="fam_buy_car_chiron")],
+        [InlineKeyboardButton(text="🍖 Купить еду для семьи (+50 еды = 50k)", callback_data="fam_buy_food")],
+        [InlineKeyboardButton(text="🔙 В меню семьи", callback_data=f"menu_marry_{uid}")]
+    ])
+    try:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+    except TelegramBadRequest:
+        await callback.answer()
+
+@dp.callback_query(F.data.startswith("fam_buy_"))
+async def fam_buy_item(callback: types.CallbackQuery):
+    uid = str(callback.from_user.id)
+    fam = await get_family(uid)
+    if not fam:
+        await callback.answer("❌ Семья не найдена!", show_alert=True)
+        return
+    
+    action = callback.data.split("_")[2] # house, apt, car, food
+    key = callback.data.split("_")[3] if len(callback.data.split("_")) > 3 else ""
+    
+    budget = fam.get("budget", 0)
+    cost = 0
+    col = ""
+    val = ""
+    
+    if action == "house":
+        item = FAMILY_HOUSES.get(key)
+        if not item: return
+        cost = item["price"]
+        col = "house"
+        val = item["name"]
+    elif action == "apt":
+        item = FAMILY_APTS.get(key)
+        if not item: return
+        cost = item["price"]
+        col = "apartment"
+        val = item["name"]
+    elif action == "car":
+        item = FAMILY_CARS.get(key)
+        if not item: return
+        cost = item["price"]
+        col = "car"
+        val = item["name"]
+    elif action == "food":
+        cost = 50000
+        col = "food"
+        val = fam.get("food", 100) + 50
+        
+    if budget < cost:
+        await callback.answer(f"❌ В семейном бюджете недостаточно средств! Нужно {cost:,} 🪙", show_alert=True)
+        return
+        
+    new_budget = budget - cost
+    def _buy():
+        if action == "food":
+            supabase.table("families").update({"budget": new_budget, "food": val}).eq("family_id", fam["family_id"]).execute()
+        else:
+            supabase.table("families").update({"budget": new_budget, col: val}).eq("family_id", fam["family_id"]).execute()
+    await asyncio.to_thread(_buy)
+    
+    await callback.answer(f"🎉 Успешно приобретено для семьи!", show_alert=True)
+    await family_shop_menu(callback)
 
 # --- АДМИН-МЕНЮ И УНИВЕРСАЛЬНЫЕ АДМИН-КОМАНДЫ ---
 @dp.message(Command("admin"))
