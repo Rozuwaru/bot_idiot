@@ -2295,7 +2295,7 @@ async def race_accept(callback: types.CallbackQuery):
 async def race_decline(callback: types.CallbackQuery):
     target_id = callback.data.split("_")[2]
     if str(callback.from_user.id) != target_id:
-        await callback.answer("❌ Это не ваше приглашение!", show_alert=True)
+        await callback.answer("❌ Вызов предназначался не вам!", show_alert=True)
         return
     PENDING_RACES.pop(target_id, None)
     await callback.message.edit_text("❌ Вызов на гонку отклонен.")
@@ -2857,13 +2857,15 @@ async def process_divorce(user, message_obj, callback=None):
 
 @dp.callback_query(F.data.startswith("family_sex_select_"))
 async def family_sex_select(callback: types.CallbackQuery):
-    owner_id = callback.data.split("_")[3]
+    parts = callback.data.split("_")
+    owner_id = parts[3]
     if str(callback.from_user.id) != owner_id:
         await callback.answer("❌ Это не ваше меню!", show_alert=True)
         return
 
     uid = str(callback.from_user.id)
     p = await get_profile(callback.from_user)
+    header = await get_menu_header(callback.from_user, p)
     pid = p.get("partner_id")
     if not pid or str(pid) == "0" or p.get("partner_name") == "EMPTY":
         await callback.answer("❌ У вас нет партнера!", show_alert=True)
@@ -2875,7 +2877,7 @@ async def family_sex_select(callback: types.CallbackQuery):
     sex_items_unsorted = [item for item in items if item.startswith("sex_")]
     sex_items = sorted(sex_items_unsorted, key=lambda x: SEX_SHOP.get(x, {}).get("price", 0))
     
-    text = "🍑 **ВЫБОР ИГРУШКИ ДЛЯ СТРАСТИ**\n\n(Отсортировано по возрастанию стоимости)\nВыберите игрушку из инвентаря или классику:"
+    text = f"{header}\n🍑 **ВЫБОР ИГРУШКИ ДЛЯ СТРАСТИ**\n\n(Отсортировано по возрастанию стоимости)\nВыберите игрушку из инвентаря или классику:"
     buttons = []
     for s_item in sex_items:
         item_data = SEX_SHOP.get(s_item, {"name": s_item, "price": 0})
@@ -2891,14 +2893,12 @@ async def family_sex_select(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("family_sex_do_"))
 async def family_sex_execute(callback: types.CallbackQuery):
     parts = callback.data.split("_")
-    item_key = parts[3]
-    owner_id = parts[4] if len(parts) > 4 else None
-
-    if owner_id and str(callback.from_user.id) != owner_id:
+    uid = parts[-1]
+    if str(callback.from_user.id) != uid:
         await callback.answer("❌ Это не ваше меню!", show_alert=True)
         return
 
-    uid = str(callback.from_user.id)
+    item_key = "_".join(parts[3:-1])
     now = time.time()
     if now - INTIMATE_COOLDOWNS.get(uid, 0) < 300:
         rem = int(300 - (now - INTIMATE_COOLDOWNS.get(uid, 0)))
