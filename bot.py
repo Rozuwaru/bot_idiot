@@ -109,47 +109,162 @@ LEVELS = {
     67: {"xp": 61875, "title": "👑 Абсолютная Легенда"},
 }
 
+# --- КАТАЛОГ БИЗНЕСОВ (Отсортирован по возрастанию цены) ---
 BUSINESSES_CAT = {
-    "plant": {
-        "name": "🏭 Завод",
-        "price": 1500000,
-        "base_profit": 25000,
-        "upgrade_name": "🛠 Купить новый ЧПУ станок",
-        "upgrade_price": 500000,
-        "raw_cost_per_unit": 200
+    "lemonade": {
+        "name": "🍋 Лимонадный киоск",
+        "price": 50000,
+        "base_profit": 1500,
+        "raw_cost_per_unit": 20,
+        "up1": {"name": "🧊 Промышленный льдогенератор", "price": 20000, "profit_add": 300, "raw_add": 2},
+        "up2": {"name": "🥤 Автомат по разливу", "price": 45000, "profit_add": 700, "raw_add": 4},
+        "up3": {"name": "🌟 Брендовая неоновая вывеска", "price": 90000, "profit_add": 1500, "raw_add": 7}
     },
-    "oil": {
-        "name": "🛢 Нефтяная вышка",
-        "price": 3500000,
-        "base_profit": 65000,
-        "upgrade_name": "⚙️ Буровой бур нового поколения",
-        "upgrade_price": 1200000,
-        "raw_cost_per_unit": 450
-    },
-    "shop": {
-        "name": "🏪 Супермаркет",
-        "price": 800000,
-        "base_profit": 12000,
-        "upgrade_name": "💳 Установка касс самообслуживания",
-        "upgrade_price": 250000,
-        "raw_cost_per_unit": 100
-    },
-    "it": {
-        "name": "💻 IT-компания",
-        "price": 6000000,
-        "base_profit": 120000,
-        "upgrade_name": "🖥 Серверная стойка с RTX",
-        "upgrade_price": 2000000,
-        "raw_cost_per_unit": 800
+    "cafe": {
+        "name": "☕ Уютная кофейня",
+        "price": 200000,
+        "base_profit": 5500,
+        "raw_cost_per_unit": 60,
+        "up1": {"name": "🫘 Итальянская кофемашина", "price": 80000, "profit_add": 1200, "raw_add": 3},
+        "up2": {"name": "🥐 Витрина со свежей выпечкой", "price": 160000, "profit_add": 2500, "raw_add": 6},
+        "up3": {"name": "🛋 Зона отдыха для гостей", "price": 320000, "profit_add": 5200, "raw_add": 10}
     },
     "farm": {
         "name": "🌾 Агроферма",
         "price": 400000,
-        "base_profit": 6000,
-        "upgrade_name": "🚜 Автоматический трактор",
-        "upgrade_price": 150000,
-        "raw_cost_per_unit": 50
+        "base_profit": 11000,
+        "raw_cost_per_unit": 100,
+        "up1": {"name": "💧 Система капельного полива", "price": 150000, "profit_add": 2400, "raw_add": 4},
+        "up2": {"name": "🚜 Новый трактор МТЗ", "price": 300000, "profit_add": 5000, "raw_add": 8},
+        "up3": {"name": "🧪 Удобрения нового поколения", "price": 600000, "profit_add": 10500, "raw_add": 14}
+    },
+    "shop": {
+        "name": "🏪 Супермаркет",
+        "price": 800000,
+        "base_profit": 22000,
+        "raw_cost_per_unit": 200,
+        "up1": {"name": "❄️ Морозильные камеры", "price": 300000, "profit_add": 5000, "raw_add": 5},
+        "up2": {"name": "💳 Кассы самообслуживания", "price": 600000, "profit_add": 11000, "raw_add": 10},
+        "up3": {"name": "🕒 Круглосуточный режим 24/7", "price": 1200000, "profit_add": 23000, "raw_add": 18}
+    },
+    "plant": {
+        "name": "🏭 Завод",
+        "price": 1500000,
+        "base_profit": 42000,
+        "raw_cost_per_unit": 350,
+        "up1": {"name": "🛠 Новый ЧПУ станок", "price": 500000, "profit_add": 9000, "raw_add": 6},
+        "up2": {"name": "⚡ Автоматическая линия сборки", "price": 1100000, "profit_add": 20000, "raw_add": 12},
+        "up3": {"name": "🤖 Роботизированный цех", "price": 2400000, "profit_add": 43000, "raw_add": 20}
+    },
+    "oil": {
+        "name": "🛢 Нефтяная вышка",
+        "price": 3500000,
+        "base_profit": 95000,
+        "raw_cost_per_unit": 700,
+        "up1": {"name": "⚙️ Буровой бур нового поколения", "price": 1200000, "profit_add": 21000, "raw_add": 8},
+        "up2": {"name": "🛞 Насосы высокого давления", "price": 2500000, "profit_add": 45000, "raw_add": 16},
+        "up3": {"name": "🧪 Система очистки сырой нефти", "price": 5000000, "profit_add": 95000, "raw_add": 25}
+    },
+    "it": {
+        "name": "💻 IT-компания",
+        "price": 6000000,
+        "base_profit": 170000,
+        "raw_cost_per_unit": 1200,
+        "up1": {"name": "🖥 Серверная стойка с RTX", "price": 2000000, "profit_add": 38000, "raw_add": 10},
+        "up2": {"name": "🛡 Система кибербезопасности", "price": 4500000, "profit_add": 82000, "raw_add": 20},
+        "up3": {"name": "🌐 Квантовый дата-центр", "price": 9000000, "profit_add": 175000, "raw_add": 30}
+    },
+    "space": {
+        "name": "🚀 Космодром",
+        "price": 15000000,
+        "base_profit": 400000,
+        "raw_cost_per_unit": 2500,
+        "up1": {"name": "🛰 Стартовый комплекс", "price": 5000000, "profit_add": 90000, "raw_add": 15},
+        "up2": {"name": "📡 РЛС дальнего действия", "price": 11000000, "profit_add": 200000, "raw_add": 30},
+        "up3": {"name": "🌌 Межпланетный ангар", "price": 22000000, "profit_add": 420000, "raw_add": 45}
     }
+}
+
+# --- КАТАЛОГ МАШИН С РЕАЛЬНЫМИ ХАРАКТЕРИСТИКАМИ ---
+CARS_CAT = {
+    "granta": {"name": "🚗 Lada Granta", "price": 50000, "base_speed": 172, "accel": 11.8, "fuel_cons": 6.8, "tank": 50},
+    "vesta": {"name": "🚗 Lada Vesta", "price": 120000, "base_speed": 188, "accel": 10.2, "fuel_cons": 7.3, "tank": 55},
+    "rio": {"name": "🚗 Kia Rio", "price": 160000, "base_speed": 190, "accel": 10.3, "fuel_cons": 6.6, "tank": 50},
+    "solaris": {"name": "🚗 Hyundai Solaris", "price": 170000, "base_speed": 192, "accel": 10.7, "fuel_cons": 6.5, "tank": 50},
+    "octavia": {"name": "🚗 Skoda Octavia", "price": 250000, "base_speed": 219, "accel": 8.1, "fuel_cons": 6.5, "tank": 50},
+    "camry": {"name": "🚗 Toyota Camry", "price": 380000, "base_speed": 210, "accel": 8.3, "fuel_cons": 7.8, "tank": 60},
+    "m3": {"name": "🏎 BMW M3 E46", "price": 550000, "base_speed": 250, "accel": 5.2, "fuel_cons": 11.9, "tank": 63},
+    "w222": {"name": "🚘 Mercedes-Benz S-Class", "price": 900000, "base_speed": 250, "accel": 4.6, "fuel_cons": 8.5, "tank": 80},
+    "rs6": {"name": "🏎 Audi RS6 Avant", "price": 1250000, "base_speed": 305, "accel": 3.6, "fuel_cons": 11.5, "tank": 73},
+    "gtr": {"name": "🏎 Nissan GT-R R35", "price": 1600000, "base_speed": 315, "accel": 2.7, "fuel_cons": 12.0, "tank": 74},
+    "911": {"name": "🏎 Porsche 911 Turbo S", "price": 2200000, "base_speed": 330, "accel": 2.6, "fuel_cons": 11.1, "tank": 67},
+    "huracan": {"name": "🏎 Lamborghini Huracan", "price": 3000000, "base_speed": 325, "accel": 2.9, "fuel_cons": 14.2, "tank": 83},
+    "488": {"name": "🏎 Ferrari 488 Spider", "price": 3800000, "base_speed": 325, "accel": 3.0, "fuel_cons": 11.4, "tank": 78},
+    "db11": {"name": "🏎 Aston Martin DB11", "price": 4600000, "base_speed": 322, "accel": 3.9, "fuel_cons": 11.3, "tank": 78},
+    "chiron": {"name": "🏎 Bugatti Chiron", "price": 6000000, "base_speed": 420, "accel": 2.4, "fuel_cons": 22.5, "tank": 100},
+    "phantom": {"name": "👑 Rolls-Royce Phantom", "price": 8000000, "base_speed": 250, "accel": 5.3, "fuel_cons": 13.9, "tank": 100},
+    "koenigsegg": {"name": "🏎 Koenigsegg Jesko", "price": 14000000, "base_speed": 480, "accel": 2.5, "fuel_cons": 18.0, "tank": 72},
+    "m5f90": {"name": "🏎 BMW M5 F90", "price": 0, "base_speed": 305, "accel": 3.3, "fuel_cons": 10.5, "tank": 68, "admin_only": True},
+}
+
+FUEL_TYPES = {
+    92: {"name": "АИ-92", "price_per_liter": 50, "bonus": 0.0},
+    95: {"name": "АИ-95", "price_per_liter": 58, "bonus": 0.05},
+    100: {"name": "АИ-100", "price_per_liter": 70, "bonus": 0.12}
+}
+
+CAR_COLORS = [
+    "🖤 Черный", "🤍 Белый", "🥈 Серебристый", "❤️ Красный", 
+    "💙 Синий", "💛 Желтый", "💚 Зеленый", "💜 Фиолетовый"
+]
+
+APARTMENTS_CAT = {
+    "room": {"name": "🏢 Комната в общежитии", "price": 20000},
+    "studio": {"name": "🏢 Студия на окраине", "price": 50000},
+    "1k": {"name": "🏢 1-комнатная квартира", "price": 120000},
+    "2k": {"name": "🏢 2-комнатная квартира", "price": 220000},
+    "3k": {"name": "🏢 3-комнатная в центре", "price": 350000},
+    "loft": {"name": "🏢 Лофт в арт-квартале", "price": 700000},
+    "penthouse": {"name": "🏢 Элитный пентхаус", "price": 1200000},
+    "duplex": {"name": "🏢 Двухуровневые апартаменты", "price": 2500000},
+    "skyscraper": {"name": "🏢 Небоскреб целиком", "price": 7000000},
+}
+
+HOUSES_CAT = {
+    "dacha": {"name": "🏡 Дачный домик", "price": 200000},
+    "townhouse": {"name": "🏡 Таунхаус за городом", "price": 450000},
+    "cottage": {"name": "🏡 Загородный коттедж", "price": 800000},
+    "modern": {"name": "🏡 Дом в стиле Хай-тек", "price": 1400000},
+    "villa": {"name": "🏡 Элитная вилла с бассейном", "price": 2000000},
+    "estate": {"name": "🏰 Поместье с парком", "price": 5000000},
+    "castle": {"name": "🏰 Средневековый замок", "price": 7500000},
+    "palace": {"name": "👑 Королевский особняк", "price": 10000000},
+    "island": {"name": "🏝 Частный тропический остров", "price": 25000000},
+}
+
+FAMILY_HOUSES = {
+    "cottage": {"name": "🏡 Загородный коттедж", "price": 800000},
+    "modern": {"name": "🏡 Дом в стиле Хай-тек", "price": 1400000},
+    "villa": {"name": "🏡 Элитная вилла с бассейном", "price": 2000000},
+    "estate": {"name": "🏰 Поместье с парком", "price": 5000000},
+    "castle": {"name": "🏰 Средневековый замок", "price": 7500000},
+    "palace": {"name": "👑 Королевский особняк", "price": 10000000},
+}
+
+FAMILY_APTS = {
+    "1k": {"name": "🏢 1-комнатная квартира", "price": 120000},
+    "3k": {"name": "🏢 3-комнатная в центре", "price": 350000},
+    "penthouse": {"name": "🏢 Элитный пентхаус", "price": 1200000},
+    "duplex": {"name": "🏢 Двухуровневые апартаменты", "price": 2500000},
+    "skyscraper": {"name": "🏢 Небоскреб целиком", "price": 7000000},
+}
+
+FAMILY_CARS = {
+    "camry": {"name": "🚗 Toyota Camry", "price": 380000},
+    "rs6": {"name": "🏎 Audi RS6 Avant", "price": 1250000},
+    "db11": {"name": "🏎 Aston Martin DB11", "price": 4600000},
+    "chiron": {"name": "🏎 Bugatti Chiron", "price": 6000000},
+    "koenigsegg": {"name": "🏎 Koenigsegg Jesko", "price": 14000000},
 }
 
 WORK_COOLDOWNS = {}
@@ -213,81 +328,6 @@ SEX_DESCRIPTIONS = {
     "sex_mask": "🎭 Надев на лицо кружевную маску, партнер отключает все мысли и полностью отдается вашей власти, принимая самые смелые и грязные фантазии в полумраке.",
     "sex_dildo": "🍆 Неоновый фаллоимитатор ярко пульсирует в темноте, задавая бешеный ритм глубоким проникновениям под дикие крики восторга.",
     "sex_chains": "🔗 Тяжелые стальные цепи надежно удерживают партнера намертво, превращая ночь в бескомпромиссное БДСМ-шоу."
-}
-
-CARS_CAT = {
-    "granta": {"name": "🚗 Lada Granta", "price": 50000, "base_speed": 40},
-    "vesta": {"name": "🚗 Lada Vesta", "price": 120000, "base_speed": 60},
-    "rio": {"name": "🚗 Kia Rio", "price": 160000, "base_speed": 75},
-    "solaris": {"name": "🚗 Hyundai Solaris", "price": 170000, "base_speed": 78},
-    "octavia": {"name": "🚗 Skoda Octavia", "price": 250000, "base_speed": 95},
-    "camry": {"name": "🚗 Toyota Camry", "price": 380000, "base_speed": 115},
-    "m3": {"name": "🏎 BMW M3 E46", "price": 550000, "base_speed": 140},
-    "w222": {"name": "🚘 Mercedes-Benz S-Class", "price": 900000, "base_speed": 160},
-    "rs6": {"name": "🏎 Audi RS6 Avant", "price": 1250000, "base_speed": 190},
-    "gtr": {"name": "🏎 Nissan GT-R R35", "price": 1600000, "base_speed": 220},
-    "911": {"name": "🏎 Porsche 911 Turbo S", "price": 2200000, "base_speed": 250},
-    "huracan": {"name": "🏎 Lamborghini Huracan", "price": 3000000, "base_speed": 285},
-    "488": {"name": "🏎 Ferrari 488 Spider", "price": 3800000, "base_speed": 310},
-    "db11": {"name": "🏎 Aston Martin DB11", "price": 4600000, "base_speed": 330},
-    "chiron": {"name": "🏎 Bugatti Chiron", "price": 6000000, "base_speed": 360},
-    "phantom": {"name": "👑 Rolls-Royce Phantom", "price": 8000000, "base_speed": 340},
-    "koenigsegg": {"name": "🏎 Koenigsegg Jesko", "price": 14000000, "base_speed": 410},
-    "m5f90": {"name": "🏎 BMW M5 F90", "price": 0, "base_speed": 340, "admin_only": True},
-}
-
-CAR_COLORS = [
-    "🖤 Черный", "🤍 Белый", "🥈 Серебристый", "❤️ Красный", 
-    "💙 Синий", "💛 Желтый", "💚 Зеленый", "💜 Фиолетовый"
-]
-
-APARTMENTS_CAT = {
-    "room": {"name": "🏢 Комната в общежитии", "price": 20000},
-    "studio": {"name": "🏢 Студия на окраине", "price": 50000},
-    "1k": {"name": "🏢 1-комнатная квартира", "price": 120000},
-    "2k": {"name": "🏢 2-комнатная квартира", "price": 220000},
-    "3k": {"name": "🏢 3-комнатная в центре", "price": 350000},
-    "loft": {"name": "🏢 Лофт в арт-квартале", "price": 700000},
-    "penthouse": {"name": "🏢 Элитный пентхаус", "price": 1200000},
-    "duplex": {"name": "🏢 Двухуровневые апартаменты", "price": 2500000},
-    "skyscraper": {"name": "🏢 Небоскреб целиком", "price": 7000000},
-}
-
-HOUSES_CAT = {
-    "dacha": {"name": "🏡 Дачный домик", "price": 200000},
-    "townhouse": {"name": "🏡 Таунхаус за городом", "price": 450000},
-    "cottage": {"name": "🏡 Загородный коттедж", "price": 800000},
-    "modern": {"name": "🏡 Дом в стиле Хай-тек", "price": 1400000},
-    "villa": {"name": "🏡 Элитная вилла с бассейном", "price": 2000000},
-    "estate": {"name": "🏰 Поместье с парком", "price": 5000000},
-    "castle": {"name": "🏰 Средневековый замок", "price": 7500000},
-    "palace": {"name": "👑 Королевский особняк", "price": 10000000},
-    "island": {"name": "🏝 Частный тропический остров", "price": 25000000},
-}
-
-FAMILY_HOUSES = {
-    "cottage": {"name": "🏡 Загородный коттедж", "price": 800000},
-    "modern": {"name": "🏡 Дом в стиле Хай-тек", "price": 1400000},
-    "villa": {"name": "🏡 Элитная вилла с бассейном", "price": 2000000},
-    "estate": {"name": "🏰 Поместье с парком", "price": 5000000},
-    "castle": {"name": "🏰 Средневековый замок", "price": 7500000},
-    "palace": {"name": "👑 Королевский особняк", "price": 10000000},
-}
-
-FAMILY_APTS = {
-    "1k": {"name": "🏢 1-комнатная квартира", "price": 120000},
-    "3k": {"name": "🏢 3-комнатная в центре", "price": 350000},
-    "penthouse": {"name": "🏢 Элитный пентхаус", "price": 1200000},
-    "duplex": {"name": "🏢 Двухуровневые апартаменты", "price": 2500000},
-    "skyscraper": {"name": "🏢 Небоскреб целиком", "price": 7000000},
-}
-
-FAMILY_CARS = {
-    "camry": {"name": "🚗 Toyota Camry", "price": 380000},
-    "rs6": {"name": "🏎 Audi RS6 Avant", "price": 1250000},
-    "db11": {"name": "🏎 Aston Martin DB11", "price": 4600000},
-    "chiron": {"name": "🏎 Bugatti Chiron", "price": 6000000},
-    "koenigsegg": {"name": "🏎 Koenigsegg Jesko", "price": 14000000},
 }
 
 def format_age(seconds: int) -> str:
@@ -420,7 +460,7 @@ async def get_family(uid: str):
         logging.error(f"Error fetching family: {e}")
     return None
 
-# --- РАСЧЕТ ДОХОДА БИЗНЕСОВ ---
+# --- РАСЧЕТ ДОХОДА И РАСХОДА СЫРЬЯ БИЗНЕСОВ ---
 async def update_businesses_for_user(uid: str):
     now = int(time.time())
     def _get_b():
@@ -440,33 +480,39 @@ async def update_businesses_for_user(uid: str):
         if hours_passed < 1.0:
             continue
 
+        full_hours = int(hours_passed)
+        b_cat = BUSINESSES_CAT.get(biz["business_type"], {})
+        
         workers = biz.get("workers", 0)
         max_workers = biz.get("max_workers", 20)
         raw = biz.get("raw_material", 0)
         max_raw = biz.get("max_raw_material", 100)
+        
+        up1 = biz.get("up1_lvl", 0)
+        up2 = biz.get("up2_lvl", 0)
+        up3 = biz.get("up3_lvl", 0)
 
-        # 1. Проверка сырья (если 0 сырья — бизнес простаивает)
+        # Расчет базового сырья в час с учетом апгрейдов
+        base_raw_per_hour = int(max_raw * 0.1)
+        raw_add_from_ups = (up1 * b_cat.get("up1", {}).get("raw_add", 0)) + \
+                           (up2 * b_cat.get("up2", {}).get("raw_add", 0)) + \
+                           (up3 * b_cat.get("up3", {}).get("raw_add", 0))
+        total_raw_consumption = (base_raw_per_hour + raw_add_from_ups) * full_hours
+
+        # Если сырья нет — бизнес простаивает
         if raw <= 0:
             supabase.table("user_businesses").update({"last_update_time": now}).eq("id", biz["id"]).execute()
             continue
 
-        # 2. Проверка работников (< 50% — бизнес не работает)
+        # Если работников меньше 50% — бизнес простаивает
         worker_ratio = workers / max_workers if max_workers > 0 else 0
         if worker_ratio < 0.5:
             supabase.table("user_businesses").update({"last_update_time": now}).eq("id", biz["id"]).execute()
             continue
 
-        # Коэффициент прибыльности от работников (если больше 50%, пропорционально числу)
         profit_multiplier = worker_ratio
-
-        # Расчет начислений за прошедшие часы
-        full_hours = int(hours_passed)
         earned = int(biz["profit_per_hour"] * full_hours * profit_multiplier)
-        
-        # Списание сырья (по 10% сырья за каждый отработанный час)
-        raw_consumed = full_hours * int(max_raw * 0.1)
-        new_raw = max(0, raw - raw_consumed)
-
+        new_raw = max(0, raw - total_raw_consumption)
         new_balance = biz["balance_profit"] + earned
         new_last_time = last_time + (full_hours * 3600)
 
@@ -584,7 +630,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                     buttons.append([InlineKeyboardButton(text=f"⚙️ Управление: {b['business_name']}", callback_data=f"biz_manage_{b['id']}_{uid}")])
 
             buttons.append([InlineKeyboardButton(text="📈 Биржа предприятий (Купить бизнес)", callback_data=f"biz_shop_list_{uid}")])
-            buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")] )
+            buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")])
             
             kb = InlineKeyboardMarkup(inline_keyboard=buttons)
             try:
@@ -726,12 +772,21 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             else:
                 for car in user_cars:
                     active_mark = "🟢 [АКТИВНА]" if car['is_active'] else ""
-                    car_price = CARS_CAT.get(car['car_key'], {"price": 100000}).get("price", 100000)
-                    sell_price = int(car_price * 0.5)
+                    car_base = CARS_CAT.get(car['car_key'], {"price": 100000, "base_speed": 200, "accel": 10.0, "fuel_cons": 8.0})
+                    sell_price = int(car_base['price'] * 0.5)
+                    
+                    ftype = car.get('fuel_type', 92)
+                    fliters = car.get('fuel_liters', 50.0)
+                    m_tank = car.get('max_fuel_liters', 50)
+
                     text += f"🚗 **{car['car_name']}** | {car['color']} {active_mark}\n"
+                    text += f"   🚀 Макс. скорость: `{car_base['base_speed']} км/ч` | Разгон 0-100: `{car_base['accel']}с`\n"
+                    text += f"   ⛽ Расход: `{car_base['fuel_cons']} л/100км` | Топливо: `{fliters:.1f}/{m_tank} л` (`{ftype}`)\n"
                     text += f"   └ Двиг: Ур.{car['engine_lvl']} | Турбо: Ур.{car['turbo_lvl']} | Управл: Ур.{car['handling_lvl']}\n\n"
+                    
                     if not car['is_active']:
                         buttons.append([InlineKeyboardButton(text=f"🔑 Сесть за руль: {car['car_name']}", callback_data=f"car_activate_{car['id']}_{uid}")])
+                    buttons.append([InlineKeyboardButton(text=f"⛽ Заправить: {car['car_name']}", callback_data=f"car_refuel_menu_{car['id']}_{uid}")])
                     buttons.append([InlineKeyboardButton(text=f"⚙️ Тюнинг: {car['car_name']}", callback_data=f"car_tune_{car['id']}_{uid}")])
                     buttons.append([InlineKeyboardButton(text=f"🗑 Продать за {sell_price:,} 🪙", callback_data=f"car_sell_{car['id']}_{uid}")])
 
@@ -919,7 +974,7 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
         logging.error(f"Error in callback_main_menu: {e}")
         await callback.answer("❌ Произошла ошибка!", show_alert=True)
 
-# --- МЕНЮ УПРАВЛЕНИЯ БИЗНЕСОМ ---
+# --- МЕНЮ УПРАВЛЕНИЯ БИЗНЕСОМ И УЛУЧШЕНИЯМИ ---
 @dp.callback_query(F.data.startswith("biz_manage_"))
 async def biz_manage_menu(callback: types.CallbackQuery):
     parts = callback.data.split("_")
@@ -947,14 +1002,14 @@ async def biz_manage_menu(callback: types.CallbackQuery):
     b_type = b["business_type"]
     b_cat = BUSINESSES_CAT.get(b_type, {})
     
-    upgrade_cost = b_cat.get("upgrade_price", 500000) * b["level"]
-    raw_buy_cost = b_cat.get("raw_cost_per_unit", 100) * 10 # покупка порции из 10 ед. сырья
-    hire_cost = 20000 # стоимость найма 5 работников
-
     workers = b["workers"]
     max_w = b["max_workers"]
     raw = b["raw_material"]
     max_r = b["max_raw_material"]
+
+    up1 = b.get("up1_lvl", 0)
+    up2 = b.get("up2_lvl", 0)
+    up3 = b.get("up3_lvl", 0)
 
     status_text = "🟢 Работает"
     if raw <= 0:
@@ -970,21 +1025,81 @@ async def biz_manage_menu(callback: types.CallbackQuery):
         f"💵 Накопленная прибыль: `+{b['balance_profit']:,}` 🪙\n"
         f"👷 Работники: `{workers} / {max_w}`\n"
         f"📦 Сырье: `{raw} / {max_r}`\n\n"
-        f"👇 Доступные действия:"
+        f"👇 **Улучшения бизнеса:**\n"
     )
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
+    buttons = [
         [InlineKeyboardButton(text=f"📥 Снять прибыль (+{b['balance_profit']:,} 🪙)", callback_data=f"biz_withdraw_{biz_id}_{uid}")],
-        [InlineKeyboardButton(text=f"📦 Купить сырье (+10 ед. за {raw_buy_cost:,} 🪙)", callback_data=f"biz_buy_raw_{biz_id}_{uid}")],
-        [InlineKeyboardButton(text=f"👷 Нанять работников (+5 за {hire_cost:,} 🪙)", callback_data=f"biz_hire_{biz_id}_{uid}")],
-        [InlineKeyboardButton(text=f"⭐ {b_cat.get('upgrade_name', 'Улучшить')} ({upgrade_cost:,} 🪙)", callback_data=f"biz_upgrade_{biz_id}_{uid}")],
-        [InlineKeyboardButton(text="🔙 Назад к списку бизнесов", callback_data=f"menu_biz_{uid}")]
-    ])
+        [InlineKeyboardButton(text=f"📦 Купить сырье (+10 ед.)", callback_data=f"biz_buy_raw_{biz_id}_{uid}")],
+        [InlineKeyboardButton(text=f"👷 Нанять работников (+5)", callback_data=f"biz_hire_{biz_id}_{uid}")],
+    ]
+
+    # Кнопки для 3 уникальных улучшений (каждое до 3 уровней)
+    for i, up_key in enumerate(["up1", "up2", "up3"], 1):
+        up_data = b_cat.get(up_key)
+        current_lvl = locals()[f"up{i}"]
+        if current_lvl < 3:
+            cost = up_data["price"] * (current_lvl + 1)
+            text += f"• {up_data['name']} (Ур. {current_lvl}/3) — `{cost:,}` 🪙\n"
+            buttons.append([InlineKeyboardButton(text=f"⬆️ Купить: {up_data['name']} [Ур.{current_lvl+1}] ({cost:,} 🪙)", callback_data=f"biz_up_buy_{biz_id}_{i}_{uid}")])
+        else:
+            text += f"• {up_data['name']} — ⭐ [МАКС УРОВЕНЬ]\n"
+
+    buttons.append([InlineKeyboardButton(text="🔙 Назад к списку бизнесов", callback_data=f"menu_biz_{uid}")])
 
     try:
-        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+        await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
+
+@dp.callback_query(F.data.startswith("biz_up_buy_"))
+async def biz_upgrade_unique(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    biz_id = int(parts[3])
+    up_idx = int(parts[4])
+    uid = parts[5]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
+    def _get_b():
+        return supabase.table("user_businesses").select("*").eq("id", biz_id).eq("user_id", uid).execute()
+    res = await asyncio.to_thread(_get_b)
+    if not res.data:
+        await callback.answer("❌ Бизнес не найден!", show_alert=True)
+        return
+    b = res.data[0]
+    b_cat = BUSINESSES_CAT.get(b["business_type"], {})
+    
+    up_key = f"up{up_idx}"
+    current_lvl = b.get(f"{up_key}_lvl", 0)
+    if current_lvl >= 3:
+        await callback.answer("❌ Достигнут максимальный уровень улучшения!", show_alert=True)
+        return
+
+    up_data = b_cat.get(up_key)
+    cost = up_data["price"] * (current_lvl + 1)
+
+    p = await get_profile(callback.from_user)
+    if p.get("coins", 0) < cost:
+        await callback.answer(f"❌ Недостаточно монет! Нужно {cost:,} 🪙", show_alert=True)
+        return
+
+    new_coins = p["coins"] - cost
+    new_lvl = current_lvl + 1
+    new_profit = b["profit_per_hour"] + up_data["profit_add"]
+
+    def _up():
+        supabase.table("users").update({"coins": new_coins}).eq("user_id", uid).execute()
+        supabase.table("user_businesses").update({
+            "profit_per_hour": new_profit,
+            f"{up_key}_lvl": new_lvl
+        }).eq("id", biz_id).execute()
+    await asyncio.to_thread(_up)
+
+    await callback.answer(f"🎉 Успешно улучшено до уровня {new_lvl}!", show_alert=True)
+    callback.data = f"biz_manage_{biz_id}_{uid}"
+    await biz_manage_menu(callback)
 
 @dp.callback_query(F.data.startswith("biz_shop_list_"))
 async def biz_shop_list(callback: types.CallbackQuery):
@@ -996,7 +1111,7 @@ async def biz_shop_list(callback: types.CallbackQuery):
     p = await get_profile(callback.from_user)
     header = await get_menu_header(callback.from_user, p)
     
-    text = f"{header}\n📈 **БИРЖА ПРЕДПРИЯТИЙ** (Баланс: `{p.get('coins', 0):,}` 🪙):\nВыберите бизнес для покупки:\n\n"
+    text = f"{header}\n📈 **БИРЖА ПРЕДПРИЯТИЙ** (Баланс: `{p.get('coins', 0):,}` 🪙):\nВыберите бизнес для покупки (в порядке возрастания цены):\n\n"
     buttons = []
 
     for k, biz in BUSINESSES_CAT.items():
@@ -1039,16 +1154,19 @@ async def buy_business_action(callback: types.CallbackQuery):
             "business_name": biz_info["name"],
             "level": 1,
             "profit_per_hour": biz_info["base_profit"],
-            "raw_material": 100,
+            "raw_material": 0,       # 0 сырья при покупке
             "max_raw_material": 100,
-            "workers": 10,
+            "workers": 0,             # 0 работников при покупке
             "max_workers": 20,
             "balance_profit": 0,
-            "last_update_time": now
+            "last_update_time": now,
+            "up1_lvl": 0,
+            "up2_lvl": 0,
+            "up3_lvl": 0
         }).execute()
     await asyncio.to_thread(_buy)
 
-    await callback.answer(f"🎉 Вы успешно приобрели «{biz_info['name']}»!", show_alert=True)
+    await callback.answer(f"🎉 Вы успешно приобрели «{biz_info['name']}»! (Завезите сырье и наймите работников)", show_alert=True)
     callback.data = f"menu_biz_{uid}"
     await callback_main_menu(callback, None)
 
@@ -1162,50 +1280,94 @@ async def biz_hire(callback: types.CallbackQuery):
     callback.data = f"biz_manage_{biz_id}_{uid}"
     await biz_manage_menu(callback)
 
-@dp.callback_query(F.data.startswith("biz_upgrade_"))
-async def biz_upgrade(callback: types.CallbackQuery):
+# --- СИСТЕМА ЗАПРАВКИ И ТОПЛИВА В ГАРАЖЕ ---
+@dp.callback_query(F.data.startswith("car_refuel_menu_"))
+async def car_refuel_menu(callback: types.CallbackQuery):
     parts = callback.data.split("_")
-    biz_id = int(parts[2])
+    car_id = int(parts[2])
     uid = parts[3]
     if str(callback.from_user.id) != uid:
         await callback.answer("❌ Это не ваше меню!", show_alert=True)
         return
 
-    def _get_b():
-        return supabase.table("user_businesses").select("*").eq("id", biz_id).eq("user_id", uid).execute()
-    res = await asyncio.to_thread(_get_b)
+    def _get_car():
+        return supabase.table("user_cars").select("*").eq("id", car_id).execute()
+    res = await asyncio.to_thread(_get_car)
     if not res.data:
-        await callback.answer("❌ Бизнес не найден!", show_alert=True)
+        await callback.answer("❌ Машина не найдена!", show_alert=True)
         return
-    b = res.data[0]
-    b_cat = BUSINESSES_CAT.get(b["business_type"], {})
-    
-    upgrade_cost = b_cat.get("upgrade_price", 500000) * b["level"]
+    car = res.data[0]
+    p = await get_profile(callback.from_user)
+    header = await get_menu_header(callback.from_user, p)
+
+    text = (
+        f"{header}\n"
+        f"⛽ **ЗАПРАВОЧНАЯ СТАНЦИЯ: {car['car_name']}**\n"
+        f"🔋 Текущий бак: `{car['fuel_liters']:.1f} / {car['max_fuel_liters']} л`\n"
+        f"⛽ Текущий бензин: `{car.get('fuel_type', 92)}`\n"
+        f"🪙 Ваш баланс: `{p.get('coins', 0):,}` 🪙\n\n"
+        f"Выберите вид топлива для заправки полного бака:"
+    )
+
+    buttons = []
+    for f_key, f_data in FUEL_TYPES.items():
+        liters_needed = car['max_fuel_liters'] - car['fuel_liters']
+        full_cost = int(liters_needed * f_data['price_per_liter'])
+        bonus_str = f" (+{int(f_data['bonus']*100)}% к мощи)" if f_data['bonus'] > 0 else ""
+        buttons.append([InlineKeyboardButton(text=f"⛽ {f_data['name']} ({f_data['price_per_liter']}🪙/л) {bonus_str} — {full_cost:,} 🪙", callback_data=f"refuel_do_{car_id}_{f_key}_{uid}")])
+
+    buttons.append([InlineKeyboardButton(text="🔙 В гараж", callback_data=f"menu_garage_{uid}")])
+
+    try:
+        await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
+    except TelegramBadRequest:
+        await callback.answer()
+
+@dp.callback_query(F.data.startswith("refuel_do_"))
+async def refuel_execute(callback: types.CallbackQuery):
+    parts = callback.data.split("_")
+    car_id = int(parts[2])
+    f_type = int(parts[3])
+    uid = parts[4]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+
+    def _get_car():
+        return supabase.table("user_cars").select("*").eq("id", car_id).execute()
+    res = await asyncio.to_thread(_get_car)
+    if not res.data:
+        await callback.answer("❌ Машина не найдена!", show_alert=True)
+        return
+    car = res.data[0]
     p = await get_profile(callback.from_user)
 
-    if p.get("coins", 0) < upgrade_cost:
-        await callback.answer(f"❌ Недостаточно монет для улучшения! Нужно {upgrade_cost:,} 🪙", show_alert=True)
+    liters_needed = car['max_fuel_liters'] - car['fuel_liters']
+    if liters_needed <= 0:
+        await callback.answer("❌ Бак уже полностью заполнен!", show_alert=True)
         return
 
-    new_level = b["level"] + 1
-    new_profit = int(b["profit_per_hour"] * 1.4) # +40% к доходу с каждым уровнем
-    new_max_w = b["max_workers"] + 10
-    new_max_r = b["max_raw_material"] + 50
-    new_coins = p["coins"] - upgrade_cost
+    f_data = FUEL_TYPES[f_type]
+    total_cost = int(liters_needed * f_data['price_per_liter'])
 
-    def _up():
+    if p.get("coins", 0) < total_cost:
+        await callback.answer(f"❌ Недостаточно монет! Нужно {total_cost:,} 🪙", show_alert=True)
+        return
+
+    new_coins = p["coins"] - total_cost
+    new_fuel = float(car['max_fuel_liters'])
+
+    def _refuel_db():
         supabase.table("users").update({"coins": new_coins}).eq("user_id", uid).execute()
-        supabase.table("user_businesses").update({
-            "level": new_level,
-            "profit_per_hour": new_profit,
-            "max_workers": new_max_w,
-            "max_raw_material": new_max_r
-        }).eq("id", biz_id).execute()
-    await asyncio.to_thread(_up)
+        supabase.table("user_cars").update({
+            "fuel_liters": new_fuel,
+            "fuel_type": f_type
+        }).eq("id", car_id).execute()
+    await asyncio.to_thread(_refuel_db)
 
-    await callback.answer(f"🎉 Успешное улучшение! Бизнес переведен на уровень {new_level}!", show_alert=True)
-    callback.data = f"biz_manage_{biz_id}_{uid}"
-    await biz_manage_menu(callback)
+    await callback.answer(f"✅ Успешно заправлено {liters_needed:.1f} л топлива {f_data['name']}!", show_alert=True)
+    callback.data = f"menu_garage_{uid}"
+    await callback_main_menu(callback, None)
 
 # --- ПРОДАЖА МАШИНЫ ---
 @dp.callback_query(F.data.startswith("car_sell_"))
@@ -1274,7 +1436,6 @@ async def prompt_support(callback: types.CallbackQuery, state: FSMContext):
         await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
-    await callback.answer()
 
 @dp.message(Command("support"))
 async def cmd_support(message: types.Message, state: FSMContext):
@@ -1736,7 +1897,6 @@ async def view_other_profile(callback: types.CallbackQuery):
         await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
-    await callback.answer()
 
 # --- МУЗЫКА В ПРОФИЛЕ ---
 @dp.callback_query(F.data.startswith("profile_music_menu_"))
@@ -1767,7 +1927,6 @@ async def profile_music_menu(callback: types.CallbackQuery):
         await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
-    await callback.answer()
 
 @dp.callback_query(F.data.startswith("set_music_prompt_"))
 async def set_music_prompt(callback: types.CallbackQuery, state: FSMContext):
@@ -1786,7 +1945,6 @@ async def set_music_prompt(callback: types.CallbackQuery, state: FSMContext):
         )
     except TelegramBadRequest:
         await callback.answer()
-    await callback.answer()
 
 @dp.message(ProfileState.waiting_for_music, F.audio)
 async def save_profile_music(message: types.Message, state: FSMContext):
@@ -1848,9 +2006,9 @@ async def shop_cars_list(callback: types.CallbackQuery):
     buttons = []
     for k, car in CARS_CAT.items():
         if car.get("admin_only"):
-            text += f"• **{car['name']}** — 🔒 *Эксклюзив (Только от админа)* (Скорость: {car['base_speed']})\n"
+            text += f"• **{car['name']}** — 🔒 *Эксклюзив (Только от админа)* (Скорость: {car['base_speed']} км/ч)\n"
         else:
-            text += f"• **{car['name']}** — `{car['price']:,}` 🪙 (Скорость: {car['base_speed']})\n"
+            text += f"• **{car['name']}** — `{car['price']:,}` 🪙 (Скорость: {car['base_speed']} км/ч, Разгон: {car['accel']}с)\n"
             buttons.append([InlineKeyboardButton(text=f"Купить: {car['name']} ({car['price']:,} 🪙)", callback_data=f"buy_car_{k}_{uid}")])
     
     buttons.append([InlineKeyboardButton(text="🔙 В гараж", callback_data=f"menu_garage_{uid}")])
@@ -1858,7 +2016,6 @@ async def shop_cars_list(callback: types.CallbackQuery):
         await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
-    await callback.answer()
 
 @dp.callback_query(F.data.startswith("buy_car_"))
 async def buy_car_action(callback: types.CallbackQuery):
@@ -1896,11 +2053,14 @@ async def buy_car_action(callback: types.CallbackQuery):
             "engine_lvl": 1,
             "turbo_lvl": 1,
             "handling_lvl": 1,
-            "is_active": is_first
+            "is_active": is_first,
+            "fuel_liters": float(car_info["tank"]),
+            "max_fuel_liters": car_info["tank"],
+            "fuel_type": 92
         }).execute()
     await asyncio.to_thread(_insert_car)
 
-    await callback.answer(f"🎉 Вы успешно купили {car_info['name']}!", show_alert=True)
+    await callback.answer(f"🎉 Вы успешно купили {car_info['name']} с полным баком!", show_alert=True)
     callback.data = f"menu_garage_{uid}"
     await callback_main_menu(callback, None)
 
@@ -1949,8 +2109,8 @@ async def car_tune_menu(callback: types.CallbackQuery):
     engine_cost = car["engine_lvl"] * 20000
     turbo_cost = car["turbo_lvl"] * 35000
     handling_cost = car["handling_lvl"] * 15000
-    car_price = CARS_CAT.get(car["car_key"], {"price": 100000}).get("price", 100000)
-    sell_price = int(car_price * 0.5)
+    car_base = CARS_CAT.get(car["car_key"], {"price": 100000})
+    sell_price = int(car_base['price'] * 0.5)
 
     text = (
         f"{header}\n"
@@ -2058,7 +2218,7 @@ async def set_car_color(callback: types.CallbackQuery):
     callback.data = f"car_tune_{car_id}_{owner_id}"
     await car_tune_menu(callback)
 
-# --- УЛИЧНЫЕ ГОНКИ (ПО СОГЛАСИЮ) ---
+# --- УЛИЧНЫЕ ГОНКИ (С УЧЕТОМ ТОПЛИВА И БОНУСОВ БЕНЗИНА) ---
 @dp.message(Command("race"))
 async def cmd_race(message: types.Message):
     if not message.reply_to_message:
@@ -2124,9 +2284,20 @@ async def race_accept(callback: types.CallbackQuery):
     if not car1 or not car2:
         await callback.answer("❌ У одного из участников нет активной машины в гараже!", show_alert=True)
         return
+
+    # Проверка топлива (нужно минимум 3 литра для гонки)
+    if car1.get("fuel_liters", 0.0) < 3.0 or car2.get("fuel_liters", 0.0) < 3.0:
+        await callback.answer("❌ У одного из участников в баке меньше 3 литров топлива! Заправьтесь.", show_alert=True)
+        return
         
-    power1 = CARS_CAT.get(car1["car_key"], {}).get("base_speed", 50) + car1["engine_lvl"]*15
-    power2 = CARS_CAT.get(car2["car_key"], {}).get("base_speed", 50) + car2["engine_lvl"]*15
+    c_info1 = CARS_CAT.get(car1["car_key"], {"base_speed": 200})
+    c_info2 = CARS_CAT.get(car2["car_key"], {"base_speed": 200})
+
+    bonus1 = FUEL_TYPES.get(car1.get("fuel_type", 92), {"bonus": 0.0})["bonus"]
+    bonus2 = FUEL_TYPES.get(car2.get("fuel_type", 92), {"bonus": 0.0})["bonus"]
+
+    power1 = (c_info1["base_speed"] + car1["engine_lvl"]*15 + car1["turbo_lvl"]*20) * (1.0 + bonus1)
+    power2 = (c_info2["base_speed"] + car2["engine_lvl"]*15 + car2["turbo_lvl"]*20) * (1.0 + bonus2)
     
     win_challenger = power1 >= power2
     winner_id = challenger_id if win_challenger else target_id
@@ -2134,6 +2305,12 @@ async def race_accept(callback: types.CallbackQuery):
     xp_gain = max(2, int(bet / 5000))
     
     def _execute_race():
+        # Сжигаем по 3 литра бензина за гонку у каждого
+        new_f1 = max(0.0, car1["fuel_liters"] - 3.0)
+        new_f2 = max(0.0, car2["fuel_liters"] - 3.0)
+        supabase.table("user_cars").update({"fuel_liters": new_f1}).eq("id", car1["id"]).execute()
+        supabase.table("user_cars").update({"fuel_liters": new_f2}).eq("id", car2["id"]).execute()
+
         supabase.table("users").update({"coins": p_challenger["coins"] - bet}).eq("user_id", challenger_id).execute()
         supabase.table("users").update({"coins": p_target["coins"] - bet}).eq("user_id", target_id).execute()
         
@@ -2152,7 +2329,7 @@ async def race_accept(callback: types.CallbackQuery):
     
     PENDING_RACES.pop(target_id, None)
     w_name = p_challenger["username"] if win_challenger else p_target["username"]
-    await callback.message.edit_text(f"🏁 **ГОНКА ЗАВЕРШЕНА!**\n\n🏆 Победитель: **{w_name}**!\n💰 Выигрыш: `+{bet*2:,}` 🪙\n✨ Опыт: `+{xp_gain} XP`", parse_mode=ParseMode.MARKDOWN)
+    await callback.message.edit_text(f"🏁 **ГОНКА ЗАВЕРШЕНА!** (Сжёг по 3л топлива)\n\n🏆 Победитель: **{w_name}**!\n💰 Выигрыш: `+{bet*2:,}` 🪙\n✨ Опыт: `+{xp_gain} XP`", parse_mode=ParseMode.MARKDOWN)
     await callback.answer("Гонка завершена!")
 
 @dp.callback_query(F.data.startswith("race_decline_"))
@@ -2184,7 +2361,6 @@ async def callback_shop_eq(callback: types.CallbackQuery):
         await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
-    await callback.answer()
 
 @dp.callback_query(F.data.startswith("shop_cons_list_"))
 async def callback_shop_cons(callback: types.CallbackQuery):
@@ -2204,7 +2380,6 @@ async def callback_shop_cons(callback: types.CallbackQuery):
         await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
-    await callback.answer()
 
 @dp.callback_query(F.data.startswith("buy_eq_"))
 async def callback_buy_eq(callback: types.CallbackQuery, state: FSMContext):
@@ -2411,7 +2586,6 @@ async def slots_help_callback(callback: types.CallbackQuery):
         await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
-    await callback.answer()
 
 @dp.callback_query(F.data.startswith("do_work_"))
 async def do_work_callback(callback: types.CallbackQuery):
@@ -2755,7 +2929,6 @@ async def family_sex_select(callback: types.CallbackQuery):
         await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
         await callback.answer()
-    await callback.answer()
 
 @dp.callback_query(F.data.startswith("family_sex_do_"))
 async def family_sex_execute(callback: types.CallbackQuery):
@@ -2853,7 +3026,6 @@ async def family_child_prompt(callback: types.CallbackQuery, state: FSMContext):
         ]),
         parse_mode=ParseMode.MARKDOWN
     )
-    await callback.answer()
 
 @dp.message(FamilyState.waiting_for_child_name)
 async def process_child_name(message: types.Message, state: FSMContext):
@@ -2927,7 +3099,6 @@ async def family_deposit_prompt(callback: types.CallbackQuery, state: FSMContext
         ]),
         parse_mode=ParseMode.MARKDOWN
     )
-    await callback.answer()
 
 @dp.message(FamilyState.waiting_for_deposit_amount)
 async def process_deposit_amount(message: types.Message, state: FSMContext):
@@ -2987,7 +3158,6 @@ async def family_withdraw_prompt(callback: types.CallbackQuery, state: FSMContex
         ]),
         parse_mode=ParseMode.MARKDOWN
     )
-    await callback.answer()
 
 @dp.message(FamilyState.waiting_for_withdraw_amount)
 async def process_withdraw_amount(message: types.Message, state: FSMContext):
@@ -2998,7 +3168,7 @@ async def process_withdraw_amount(message: types.Message, state: FSMContext):
         await message.answer("❌ Введите корректную сумму числом:")
         return
         
-    uid = str(message.from_user.id)
+    uid = str(callback.from_user.id)
     fam = await get_family(uid)
     if not fam or fam.get("budget", 0) < amount:
         await message.answer("❌ В семейном бюджете недостаточно средств!")
@@ -3267,12 +3437,15 @@ async def admin_give_car(message: types.Message):
             "engine_lvl": 1,
             "turbo_lvl": 1,
             "handling_lvl": 1,
-            "is_active": is_first
+            "is_active": is_first,
+            "fuel_liters": float(car_info["tank"]),
+            "max_fuel_liters": car_info["tank"],
+            "fuel_type": 92
         }).execute()
     
     try:
         await asyncio.to_thread(_insert_car)
-        await message.answer(f"✅ Игроку **{target_name}** успешно выдана машина: **{car_info['name']}**!", parse_mode=ParseMode.MARKDOWN)
+        await message.answer(f"✅ Игроку **{target_name}** успешно выдана машина: **{car_info['name']}** с полным баком!", parse_mode=ParseMode.MARKDOWN)
     except Exception as e:
         logging.error(f"Error giving car: {e}")
         await message.answer("❌ Ошибка при выдаче машины в базу данных.")
