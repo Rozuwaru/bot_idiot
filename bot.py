@@ -527,8 +527,7 @@ def get_main_keyboard(user_id: int):
          InlineKeyboardButton(text="🎒 Инвентарь", callback_data=f"menu_inv_{user_id}")],
         [InlineKeyboardButton(text="⚔️ Оружейная", callback_data=f"menu_armory_{user_id}"),
          InlineKeyboardButton(text="🏎 Гараж и Авто", callback_data=f"menu_garage_{user_id}")],
-        [InlineKeyboardButton(text="🛒 Магазины", callback_data=f"menu_shops_{user_id}"),
-         InlineKeyboardButton(text="🍑 Секс-шоп", callback_data=f"menu_sexshop_{user_id}")],
+        [InlineKeyboardButton(text="🛒 Магазины", callback_data=f"menu_shops_{user_id}")],
         [InlineKeyboardButton(text="🏢 Бизнесы", callback_data=f"menu_biz_{user_id}"),
          InlineKeyboardButton(text="🏠 Имущество", callback_data=f"menu_personal_{user_id}")],
         [InlineKeyboardButton(text="🏆 Топ игроков", callback_data=f"menu_top_{user_id}"),
@@ -1408,15 +1407,6 @@ async def prompt_support(callback: types.CallbackQuery, state: FSMContext):
     uid = str(callback.from_user.id)
     p = await get_profile(callback.from_user)
     
-    if not p.get("started_in_pm", False):
-        await callback.answer("❌ Сначала запустите бота в ЛС (/start)!", show_alert=True)
-        text = (
-            "❌ **Ошибка доступа к техподдержке!**\n\n"
-            "Вы еще не запускали бота в личных сообщениях. Перейдите в ЛС с ботом и нажмите кнопку **Запустить** или отправьте команду `/start`, чтобы зарегистрироваться!"
-        )
-        await callback.message.answer(text, parse_mode=ParseMode.MARKDOWN)
-        return
-
     await state.set_state(SupportState.waiting_for_message)
     header = await get_menu_header(callback.from_user, p)
     text = (
@@ -1435,15 +1425,6 @@ async def prompt_support(callback: types.CallbackQuery, state: FSMContext):
 
 @dp.message(Command("support"))
 async def cmd_support(message: types.Message, state: FSMContext):
-    p = await get_profile(message.from_user)
-    if not p.get("started_in_pm", False) and message.chat.type != "private":
-        await message.answer(
-            "❌ **Ошибка доступа к техподдержке!**\n\n"
-            "Вы не запустили бота в личных сообщениях. Перейдите в ЛС с ботом и отправьте `/start` для регистрации!",
-            parse_mode=ParseMode.MARKDOWN
-        )
-        return
-
     await state.set_state(SupportState.waiting_for_message)
     await message.answer(
         "🆘 **СЛУЖБА ТЕХНИЧЕСКОЙ ПОДДЕРЖКИ**\n\nОпишите вашу проблему или запрос следующим сообщением:",
@@ -1452,15 +1433,6 @@ async def cmd_support(message: types.Message, state: FSMContext):
 
 @dp.message(SupportState.waiting_for_message)
 async def process_support_message(message: types.Message, state: FSMContext):
-    p = await get_profile(message.from_user)
-    if not p.get("started_in_pm", False):
-        await state.clear()
-        await message.answer(
-            "❌ **Ошибка регистрации!** Вы не запустили бота в личных сообщениях. Отправьте `/start` боту в ЛС.",
-            parse_mode=ParseMode.MARKDOWN
-        )
-        return
-
     await state.clear()
     sender = message.from_user
     text = message.text or message.caption or "[Медиафайл]"
@@ -2900,15 +2872,15 @@ async def family_sex_select(callback: types.CallbackQuery):
     inv_str = p.get("inventory") or ""
     items = [i.strip() for i in inv_str.split(",") if i.strip()]
     
-    sex_items_unsorted = [(idx, item) for idx, item in enumerate(items) if item.startswith("sex_")]
-    sex_items = sorted(sex_items_unsorted, key=lambda x: SEX_SHOP.get(x[1], {}).get("price", 0))
+    sex_items_unsorted = [item for item in items if item.startswith("sex_")]
+    sex_items = sorted(sex_items_unsorted, key=lambda x: SEX_SHOP.get(x, {}).get("price", 0))
     
     text = "🍑 **ВЫБОР ИГРУШКИ ДЛЯ СТРАСТИ**\n\n(Отсортировано по возрастанию стоимости)\nВыберите игрушку из инвентаря или классику:"
     buttons = []
-    for idx, s_item in sex_items:
+    for s_item in sex_items:
         item_data = SEX_SHOP.get(s_item, {"name": s_item, "price": 0})
-        buttons.append([InlineKeyboardButton(text=f"🔥 {item_data['name']} — {item_data['price']:,} 🪙", callback_data=f"family_sex_do_{idx}_{s_item}_{uid}")])
-    buttons.append([InlineKeyboardButton(text="🔥 Без игрушек (Классика)", callback_data=f"family_sex_do_none_none_{uid}")])
+        buttons.append([InlineKeyboardButton(text=f"🔥 {item_data['name']} — {item_data['price']:,} 🪙", callback_data=f"family_sex_do_{s_item}_{uid}")])
+    buttons.append([InlineKeyboardButton(text="🔥 Без игрушек (Классика)", callback_data=f"family_sex_do_none_{uid}")])
     buttons.append([InlineKeyboardButton(text="💍 Назад в семью", callback_data=f"menu_marry_{uid}")])
     
     try:
@@ -2919,9 +2891,8 @@ async def family_sex_select(callback: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("family_sex_do_"))
 async def family_sex_execute(callback: types.CallbackQuery):
     parts = callback.data.split("_")
-    item_idx_str = parts[3]
-    item_key = parts[4]
-    owner_id = parts[5] if len(parts) > 5 else None
+    item_key = parts[3]
+    owner_id = parts[4] if len(parts) > 4 else None
 
     if owner_id and str(callback.from_user.id) != owner_id:
         await callback.answer("❌ Это не ваше меню!", show_alert=True)
@@ -2944,10 +2915,9 @@ async def family_sex_execute(callback: types.CallbackQuery):
     items = [i.strip() for i in inv_str.split(",") if i.strip()]
     
     toy_desc = ""
-    if item_idx_str != "none" and item_idx_str.isdigit():
-        idx = int(item_idx_str)
-        if idx < len(items) and items[idx] == item_key:
-            items.pop(idx)
+    if item_key != "none":
+        if item_key in items:
+            items.remove(item_key)
             new_inv = ",".join(items)
             supabase.table("users").update({"inventory": new_inv}).eq("user_id", uid).execute()
             toy_desc = SEX_DESCRIPTIONS.get(item_key, "")
@@ -3154,7 +3124,7 @@ async def process_withdraw_amount(message: types.Message, state: FSMContext):
         await message.answer("❌ Введите корректную сумму числом:")
         return
         
-    uid = str(callback.from_user.id)
+    uid = str(message.from_user.id)
     fam = await get_family(uid)
     if not fam or fam.get("budget", 0) < amount:
         await message.answer("❌ В семейном бюджете недостаточно средств!")
@@ -3441,7 +3411,6 @@ async def handle(request):
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
     
-    # Устанавливаем в меню Telegram только команды /start и /marry
     commands = [
         BotCommand(command="start", description="Запустить бота / Главное меню"),
         BotCommand(command="marry", description="Сделать предложение о браке")
