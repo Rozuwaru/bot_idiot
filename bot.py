@@ -8,7 +8,7 @@ from aiohttp import web
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import Command
 from aiogram.enums import ParseMode
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, BotCommand, BotCommandScopeDefault
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.exceptions import TelegramBadRequest
@@ -109,7 +109,6 @@ LEVELS = {
     67: {"xp": 61875, "title": "👑 Абсолютная Легенда"},
 }
 
-# --- КАТАЛОГ БИЗНЕСОВ (Отсортирован по возрастанию цены) ---
 BUSINESSES_CAT = {
     "lemonade": {
         "name": "🍋 Лимонадный киоск",
@@ -185,7 +184,6 @@ BUSINESSES_CAT = {
     }
 }
 
-# --- КАТАЛОГ МАШИН С РЕАЛЬНЫМИ ХАРАКТЕРИСТИКАМИ ---
 CARS_CAT = {
     "granta": {"name": "🚗 Lada Granta", "price": 50000, "base_speed": 172, "accel": 11.8, "fuel_cons": 6.8, "tank": 50},
     "vesta": {"name": "🚗 Lada Vesta", "price": 120000, "base_speed": 188, "accel": 10.2, "fuel_cons": 7.3, "tank": 55},
@@ -411,6 +409,9 @@ async def get_profile(user: types.User):
             if not user_data.get("created_at") or int(user_data.get("created_at", 0)) == 0:
                 updates["created_at"] = now
                 user_data["created_at"] = now
+            if user.username and user_data.get("username") != user.username:
+                updates["username"] = user.username
+                user_data["username"] = user.username
             if updates:
                 supabase.table("users").update(updates).eq("user_id", uid).execute()
             return user_data
@@ -460,7 +461,6 @@ async def get_family(uid: str):
         logging.error(f"Error fetching family: {e}")
     return None
 
-# --- РАСЧЕТ ДОХОДА И РАСХОДА СЫРЬЯ БИЗНЕСОВ ---
 async def update_businesses_for_user(uid: str):
     now = int(time.time())
     def _get_b():
@@ -492,19 +492,16 @@ async def update_businesses_for_user(uid: str):
         up2 = biz.get("up2_lvl", 0)
         up3 = biz.get("up3_lvl", 0)
 
-        # Расчет базового сырья в час с учетом апгрейдов
         base_raw_per_hour = int(max_raw * 0.1)
         raw_add_from_ups = (up1 * b_cat.get("up1", {}).get("raw_add", 0)) + \
                            (up2 * b_cat.get("up2", {}).get("raw_add", 0)) + \
                            (up3 * b_cat.get("up3", {}).get("raw_add", 0))
         total_raw_consumption = (base_raw_per_hour + raw_add_from_ups) * full_hours
 
-        # Если сырья нет — бизнес простаивает
         if raw <= 0:
             supabase.table("user_businesses").update({"last_update_time": now}).eq("id", biz["id"]).execute()
             continue
 
-        # Если работников меньше 50% — бизнес простаивает
         worker_ratio = workers / max_workers if max_workers > 0 else 0
         if worker_ratio < 0.5:
             supabase.table("user_businesses").update({"last_update_time": now}).eq("id", biz["id"]).execute()
@@ -816,8 +813,9 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
             text = f"{header}\n🛒 **ВЫБЕРИТЕ МАГАЗИН** (Баланс: `{p.get('coins', 0):,}` 🪙):"
             kb = InlineKeyboardMarkup(inline_keyboard=[
                 [InlineKeyboardButton(text="🏎 Автосалон (Все модели)", callback_data=f"shop_cars_list_{uid}")],
-                [InlineKeyboardButton(text="⚔️ Снаряжение (в Оружейную)", callback_data=f"shop_eq_list_{uid}")],
-                [InlineKeyboardButton(text="🍺 Продукты и ПК (в инвентарь)", callback_data=f"shop_cons_list_{uid}")],
+                [InlineKeyboardButton(text="⚔️ Снаряжение", callback_data=f"shop_eq_list_{uid}")],
+                [InlineKeyboardButton(text="🍺 Продукты и техника", callback_data=f"shop_cons_list_{uid}")],
+                [InlineKeyboardButton(text="🍑 Секс-шоп (Игрушки)", callback_data=f"menu_sexshop_{uid}")],
                 [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
             ])
             try:
@@ -826,11 +824,11 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 await callback.answer()
 
         elif action == "sexshop":
-            text = f"{header}\n🍑 **СЕКС-ШОП «БЕЗ ТОРМОЗОВ»** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\nПриобретайте игрушки, они попадают в инвентарь:"
+            text = f"{header}\n🍑 **СЕКС-ШОП** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\nПриобретайте игрушки (от дешевых к дорогим), они попадают в инвентарь:"
             buttons = []
             for item_id, data in SEX_SHOP.items():
                 buttons.append([InlineKeyboardButton(text=f"{data['name']} — {data['price']:,} 🪙", callback_data=f"buy_sex_{item_id}_{uid}")])
-            buttons.append([InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")])
+            buttons.append([InlineKeyboardButton(text="🔙 В меню магазинов", callback_data=f"menu_shops_{uid}")])
             try:
                 await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
             except TelegramBadRequest:
@@ -974,7 +972,6 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
         logging.error(f"Error in callback_main_menu: {e}")
         await callback.answer("❌ Произошла ошибка!", show_alert=True)
 
-# --- МЕНЮ УПРАВЛЕНИЯ БИЗНЕСОМ И УЛУЧШЕНИЯМИ ---
 @dp.callback_query(F.data.startswith("biz_manage_"))
 async def biz_manage_menu(callback: types.CallbackQuery):
     parts = callback.data.split("_")
@@ -1011,6 +1008,9 @@ async def biz_manage_menu(callback: types.CallbackQuery):
     up2 = b.get("up2_lvl", 0)
     up3 = b.get("up3_lvl", 0)
 
+    raw_cost = b_cat.get("raw_cost_per_unit", 20) * 10
+    hire_cost = 20000
+
     status_text = "🟢 Работает"
     if raw <= 0:
         status_text = "🔴 Остановлен (Нет сырья!)"
@@ -1030,11 +1030,10 @@ async def biz_manage_menu(callback: types.CallbackQuery):
 
     buttons = [
         [InlineKeyboardButton(text=f"📥 Снять прибыль (+{b['balance_profit']:,} 🪙)", callback_data=f"biz_withdraw_{biz_id}_{uid}")],
-        [InlineKeyboardButton(text=f"📦 Купить сырье (+10 ед.)", callback_data=f"biz_buy_raw_{biz_id}_{uid}")],
-        [InlineKeyboardButton(text=f"👷 Нанять работников (+5)", callback_data=f"biz_hire_{biz_id}_{uid}")],
+        [InlineKeyboardButton(text=f"📦 Купить сырье (+10 ед.) — {raw_cost:,} 🪙", callback_data=f"biz_buy_raw_{biz_id}_{uid}")],
+        [InlineKeyboardButton(text=f"👷 Нанять работников (+5) — {hire_cost:,} 🪙", callback_data=f"biz_hire_{biz_id}_{uid}")],
     ]
 
-    # Кнопки для 3 уникальных улучшений (каждое до 3 уровней)
     for i, up_key in enumerate(["up1", "up2", "up3"], 1):
         up_data = b_cat.get(up_key)
         current_lvl = locals()[f"up{i}"]
@@ -1154,9 +1153,9 @@ async def buy_business_action(callback: types.CallbackQuery):
             "business_name": biz_info["name"],
             "level": 1,
             "profit_per_hour": biz_info["base_profit"],
-            "raw_material": 0,       # 0 сырья при покупке
+            "raw_material": 0,
             "max_raw_material": 100,
-            "workers": 0,             # 0 работников при покупке
+            "workers": 0,
             "max_workers": 20,
             "balance_profit": 0,
             "last_update_time": now,
@@ -1222,7 +1221,7 @@ async def biz_buy_raw(callback: types.CallbackQuery):
         return
     b = res.data[0]
     b_cat = BUSINESSES_CAT.get(b["business_type"], {})
-    cost = b_cat.get("raw_cost_per_unit", 100) * 10
+    cost = b_cat.get("raw_cost_per_unit", 20) * 10
 
     p = await get_profile(callback.from_user)
     if p.get("coins", 0) < cost:
@@ -1237,7 +1236,7 @@ async def biz_buy_raw(callback: types.CallbackQuery):
         supabase.table("user_businesses").update({"raw_material": new_raw}).eq("id", biz_id).execute()
     await asyncio.to_thread(_buy_r)
 
-    await callback.answer("✅ Сырье успешно закуплено (+10 ед.)!", show_alert=True)
+    await callback.answer(f"✅ Сырье успешно закуплено за {cost:,} 🪙 (+10 ед.)!", show_alert=True)
     callback.data = f"biz_manage_{biz_id}_{uid}"
     await biz_manage_menu(callback)
 
@@ -1276,11 +1275,10 @@ async def biz_hire(callback: types.CallbackQuery):
         supabase.table("user_businesses").update({"workers": new_workers}).eq("id", biz_id).execute()
     await asyncio.to_thread(_h)
 
-    await callback.answer("✅ Нанято +5 новых работников!", show_alert=True)
+    await callback.answer(f"✅ Нанято +5 новых работников за {cost:,} 🪙!", show_alert=True)
     callback.data = f"biz_manage_{biz_id}_{uid}"
     await biz_manage_menu(callback)
 
-# --- СИСТЕМА ЗАПРАВКИ И ТОПЛИВА В ГАРАЖЕ ---
 @dp.callback_query(F.data.startswith("car_refuel_menu_"))
 async def car_refuel_menu(callback: types.CallbackQuery):
     parts = callback.data.split("_")
@@ -1369,7 +1367,6 @@ async def refuel_execute(callback: types.CallbackQuery):
     callback.data = f"menu_garage_{uid}"
     await callback_main_menu(callback, None)
 
-# --- ПРОДАЖА МАШИНЫ ---
 @dp.callback_query(F.data.startswith("car_sell_"))
 async def car_sell_action(callback: types.CallbackQuery):
     parts = callback.data.split("_")
@@ -1407,7 +1404,6 @@ async def car_sell_action(callback: types.CallbackQuery):
     callback.data = f"menu_garage_{uid}"
     await callback_main_menu(callback, None)
 
-# --- ТЕХПОДДЕРЖКА (SUPPORT SYSTEM) ---
 async def prompt_support(callback: types.CallbackQuery, state: FSMContext):
     uid = str(callback.from_user.id)
     p = await get_profile(callback.from_user)
@@ -1529,7 +1525,7 @@ async def send_support_reply(message: types.Message, state: FSMContext):
     except Exception as e:
         await message.answer(
             f"❌ Не удалось отправить сообщение пользователю `{target_uid}`.\n"
-            f"Возможная причина: пользователь еще не запускал бота (/start) в личных сообщениях.\nОшибка: {e}", 
+            f"Ошибка: {e}", 
             parse_mode=ParseMode.MARKDOWN
         )
 
@@ -1550,11 +1546,10 @@ async def cmd_reply(message: types.Message):
     except Exception as e:
         await message.answer(
             f"❌ Не удалось отправить сообщение пользователю `{target_uid}`.\n"
-            f"Возможная причина: пользователь еще не запускал бота (/start) в личных сообщениях.\nОшибка: {e}", 
+            f"Ошибка: {e}", 
             parse_mode=ParseMode.MARKDOWN
         )
 
-# --- ПАРТНЕРСКАЯ ПРОГРАММА И КОМАНДЫ ---
 @dp.message(Command("setpartner"))
 async def admin_set_partner(message: types.Message):
     if not is_admin(message.from_user):
@@ -1665,7 +1660,6 @@ async def partner_give_me(message: types.Message):
         await asyncio.to_thread(_upd_admin)
         await message.answer(f"✅ Администратору начислено `+{amount:,}` 🪙 (Баланс: `{new_coins:,}` 🪙)", parse_mode=ParseMode.MARKDOWN)
 
-# --- ИНВЕНТАРЬ И ПРЕДМЕТЫ ---
 @dp.callback_query(F.data.startswith("use_item_"))
 async def use_inventory_item(callback: types.CallbackQuery, state: FSMContext):
     parts = callback.data.split("_")
@@ -1772,7 +1766,6 @@ async def use_inventory_item(callback: types.CallbackQuery, state: FSMContext):
     callback.data = f"menu_inv_{uid}"
     await callback_main_menu(callback, state)
 
-# --- ОРУЖЕЙНАЯ И ЭКИПИРОВКА ---
 @dp.callback_query(F.data.startswith("equip_item_"))
 async def equip_item_handler(callback: types.CallbackQuery, state: FSMContext):
     parts = callback.data.split("_")
@@ -1819,7 +1812,6 @@ async def unequip_item_handler(callback: types.CallbackQuery, state: FSMContext)
     callback.data = f"menu_armory_{uid}"
     await callback_main_menu(callback, state)
 
-# --- ПРОСМОТР ЧУЖОГО ПРОФИЛЯ ---
 @dp.callback_query(F.data.startswith("view_profile_"))
 async def view_other_profile(callback: types.CallbackQuery):
     parts = callback.data.split("_")
@@ -1898,7 +1890,6 @@ async def view_other_profile(callback: types.CallbackQuery):
     except TelegramBadRequest:
         await callback.answer()
 
-# --- МУЗЫКА В ПРОФИЛЕ ---
 @dp.callback_query(F.data.startswith("profile_music_menu_"))
 async def profile_music_menu(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
@@ -1993,7 +1984,6 @@ async def delete_profile_music(callback: types.CallbackQuery, state: FSMContext)
     callback.data = f"menu_profile_{uid}"
     await callback_main_menu(callback, state)
 
-# --- АВТОСАЛОН И ТЮНИНГ ---
 @dp.callback_query(F.data.startswith("shop_cars_list_"))
 async def shop_cars_list(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
@@ -2011,7 +2001,7 @@ async def shop_cars_list(callback: types.CallbackQuery):
             text += f"• **{car['name']}** — `{car['price']:,}` 🪙 (Скорость: {car['base_speed']} км/ч, Разгон: {car['accel']}с)\n"
             buttons.append([InlineKeyboardButton(text=f"Купить: {car['name']} ({car['price']:,} 🪙)", callback_data=f"buy_car_{k}_{uid}")])
     
-    buttons.append([InlineKeyboardButton(text="🔙 В гараж", callback_data=f"menu_garage_{uid}")])
+    buttons.append([InlineKeyboardButton(text="🔙 В меню магазинов", callback_data=f"menu_shops_{uid}")])
     try:
         await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
@@ -2218,7 +2208,6 @@ async def set_car_color(callback: types.CallbackQuery):
     callback.data = f"car_tune_{car_id}_{owner_id}"
     await car_tune_menu(callback)
 
-# --- УЛИЧНЫЕ ГОНКИ (С УЧЕТОМ ТОПЛИВА И БОНУСОВ БЕНЗИНА) ---
 @dp.message(Command("race"))
 async def cmd_race(message: types.Message):
     if not message.reply_to_message:
@@ -2285,7 +2274,6 @@ async def race_accept(callback: types.CallbackQuery):
         await callback.answer("❌ У одного из участников нет активной машины в гараже!", show_alert=True)
         return
 
-    # Проверка топлива (нужно минимум 3 литра для гонки)
     if car1.get("fuel_liters", 0.0) < 3.0 or car2.get("fuel_liters", 0.0) < 3.0:
         await callback.answer("❌ У одного из участников в баке меньше 3 литров топлива! Заправьтесь.", show_alert=True)
         return
@@ -2305,7 +2293,6 @@ async def race_accept(callback: types.CallbackQuery):
     xp_gain = max(2, int(bet / 5000))
     
     def _execute_race():
-        # Сжигаем по 3 литра бензина за гонку у каждого
         new_f1 = max(0.0, car1["fuel_liters"] - 3.0)
         new_f2 = max(0.0, car2["fuel_liters"] - 3.0)
         supabase.table("user_cars").update({"fuel_liters": new_f1}).eq("id", car1["id"]).execute()
@@ -2342,7 +2329,6 @@ async def race_decline(callback: types.CallbackQuery):
     await callback.message.edit_text("❌ Вызов на гонку отклонен.")
     await callback.answer("Отклонено")
 
-# --- МАГАЗИНЫ И ИМУЩЕСТВО ---
 @dp.callback_query(F.data.startswith("shop_eq_list_"))
 async def callback_shop_eq(callback: types.CallbackQuery):
     uid = callback.data.split("_")[3]
@@ -2351,12 +2337,12 @@ async def callback_shop_eq(callback: types.CallbackQuery):
         return
     p = await get_profile(callback.from_user)
     header = await get_menu_header(callback.from_user, p)
-    text = f"{header}\n⚔️ **МАГАЗИН СНАРЯЖЕНИЯ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
+    text = f"{header}\n⚔️ **МАГАЗИН СНАРЯЖЕНИЯ** (Баланс: `{p.get('coins', 0):,}` 🪙):\n(Отсортировано по возрастанию цены)\n\n"
     buttons = []
     for item_id, data in SHOP_EQUIPMENT.items():
-        text += f"🔹 **{data['name']}** ({data['price']:,} 🪙)\n   └ *{data['desc']}*\n\n"
-        buttons.append([InlineKeyboardButton(text=f"Купить: {data['name']}", callback_data=f"buy_eq_{item_id}_{uid}")])
-    buttons.append([InlineKeyboardButton(text="🔙 К магазинам", callback_data=f"menu_shops_{uid}")])
+        text += f"🔹 **{data['name']}** — `{data['price']:,}` 🪙\n   └ *{data['desc']}*\n\n"
+        buttons.append([InlineKeyboardButton(text=f"Купить: {data['name']} ({data['price']:,} 🪙)", callback_data=f"buy_eq_{item_id}_{uid}")])
+    buttons.append([InlineKeyboardButton(text="🔙 В меню магазинов", callback_data=f"menu_shops_{uid}")])
     try:
         await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
@@ -2370,12 +2356,12 @@ async def callback_shop_cons(callback: types.CallbackQuery):
         return
     p = await get_profile(callback.from_user)
     header = await get_menu_header(callback.from_user, p)
-    text = f"{header}\n🍺 **ПРОДУКТЫ И ТЕХНИКА** (Баланс: `{p.get('coins', 0):,}` 🪙):\n\n"
+    text = f"{header}\n🍺 **ПРОДУКТЫ И ТЕХНИКА** (Баланс: `{p.get('coins', 0):,}` 🪙):\n(Отсортировано по возрастанию цены)\n\n"
     buttons = []
     for item_id, data in SHOP_CONSUMABLES.items():
-        text += f"🔹 **{data['name']}** ({data['price']:,} 🪙)\n   └ *{data['desc']}*\n\n"
-        buttons.append([InlineKeyboardButton(text=f"Купить: {data['name']}", callback_data=f"buy_cons_{item_id}_{uid}")])
-    buttons.append([InlineKeyboardButton(text="🔙 К магазинам", callback_data=f"menu_shops_{uid}")])
+        text += f"🔹 **{data['name']}** — `{data['price']:,}` 🪙\n   └ *{data['desc']}*\n\n"
+        buttons.append([InlineKeyboardButton(text=f"Купить: {data['name']} ({data['price']:,} 🪙)", callback_data=f"buy_cons_{item_id}_{uid}")])
+    buttons.append([InlineKeyboardButton(text="🔙 В меню магазинов", callback_data=f"menu_shops_{uid}")])
     try:
         await callback.message.edit_text(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons), parse_mode=ParseMode.MARKDOWN)
     except TelegramBadRequest:
@@ -2434,8 +2420,8 @@ async def callback_buy_cons(callback: types.CallbackQuery, state: FSMContext):
     await asyncio.to_thread(_upd)
         
     await callback.answer(f"✅ {item['name']} добавлен в инвентарь!", show_alert=True)
-    callback.data = f"menu_shops_{uid}"
-    await callback_main_menu(callback, state)
+    callback.data = f"shop_cons_list_{uid}"
+    await callback_shop_cons(callback)
 
 @dp.callback_query(F.data.startswith("buy_sex_"))
 async def buy_sex_item(callback: types.CallbackQuery, state: FSMContext):
@@ -2535,7 +2521,6 @@ async def pers_buy_item(callback: types.CallbackQuery, state: FSMContext):
     callback.data = f"menu_personal_{uid}"
     await callback_main_menu(callback, state)
 
-# --- БИРЖА ТРУДА И КАЗИНО ---
 @dp.message(Command("work"))
 async def cmd_work(message: types.Message, state: FSMContext):
     await state.clear()
@@ -2782,7 +2767,6 @@ async def cmd_duel(message: types.Message, state: FSMContext):
     winner = random.choices([user1, user2], weights=[score1, score2], k=1)[0]
     await message.answer(f"⚔️ **ДУЭЛЬ!**\n\n🏆 Победитель: **{winner.first_name}**! 🎉", parse_mode=ParseMode.MARKDOWN)
 
-# --- ОТНОШЕНИЯ, СЕМЬЯ И СЕКС ---
 @dp.message(Command("marry"))
 async def cmd_marry(message: types.Message):
     if not message.reply_to_message:
@@ -2915,13 +2899,15 @@ async def family_sex_select(callback: types.CallbackQuery):
     
     inv_str = p.get("inventory") or ""
     items = [i.strip() for i in inv_str.split(",") if i.strip()]
-    sex_items = [(idx, item) for idx, item in enumerate(items) if item.startswith("sex_")]
     
-    text = "🍑 **ВЫБОР ИГРУШКИ ДЛЯ СТРАСТИ**\n\nВыберите игрушку из инвентаря или классику:"
+    sex_items_unsorted = [(idx, item) for idx, item in enumerate(items) if item.startswith("sex_")]
+    sex_items = sorted(sex_items_unsorted, key=lambda x: SEX_SHOP.get(x[1], {}).get("price", 0))
+    
+    text = "🍑 **ВЫБОР ИГРУШКИ ДЛЯ СТРАСТИ**\n\n(Отсортировано по возрастанию стоимости)\nВыберите игрушку из инвентаря или классику:"
     buttons = []
     for idx, s_item in sex_items:
-        item_data = SEX_SHOP.get(s_item, {"name": s_item})
-        buttons.append([InlineKeyboardButton(text=f"🔥 {item_data['name']}", callback_data=f"family_sex_do_{idx}_{s_item}_{uid}")])
+        item_data = SEX_SHOP.get(s_item, {"name": s_item, "price": 0})
+        buttons.append([InlineKeyboardButton(text=f"🔥 {item_data['name']} — {item_data['price']:,} 🪙", callback_data=f"family_sex_do_{idx}_{s_item}_{uid}")])
     buttons.append([InlineKeyboardButton(text="🔥 Без игрушек (Классика)", callback_data=f"family_sex_do_none_none_{uid}")])
     buttons.append([InlineKeyboardButton(text="💍 Назад в семью", callback_data=f"menu_marry_{uid}")])
     
@@ -3207,7 +3193,7 @@ async def family_shop_menu(callback: types.CallbackQuery):
     text = (
         f"🛒 **СЕМЕЙНЫЙ МАГАЗИН ИМУЩЕСТВА**\n"
         f"💰 Бюджет семьи: `{fam.get('budget', 0):,}` 🪙\n\n"
-        f"Покупайте имущество в общую собственность за счет семейного бюджета (строго по возрастанию цены):"
+        f"Покупайте имущество в общую собственность (отсортировано по возрастанию цены):"
     )
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="🏡 Коттедж (800k)", callback_data=f"fam_buy_house_cottage_{uid}")],
@@ -3289,7 +3275,6 @@ async def fam_buy_item(callback: types.CallbackQuery):
     callback.data = f"family_shop_menu_{uid}"
     await family_shop_menu(callback)
 
-# --- АДМИН-МЕНЮ И УНИВЕРСАЛЬНЫЕ АДМИН-КОМАНДЫ ---
 @dp.message(Command("admin"))
 async def cmd_admin_menu(message: types.Message):
     if not is_admin(message.from_user):
@@ -3450,12 +3435,18 @@ async def admin_give_car(message: types.Message):
         logging.error(f"Error giving car: {e}")
         await message.answer("❌ Ошибка при выдаче машины в базу данных.")
 
-# --- ВЕБ-СЕРВЕР ДЛЯ RENDER И ЗАПУСК БОТА ---
 async def handle(request):
     return web.Response(text="Bot is running!")
 
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
+    
+    # Устанавливаем в меню Telegram только команды /start и /marry
+    commands = [
+        BotCommand(command="start", description="Запустить бота / Главное меню"),
+        BotCommand(command="marry", description="Сделать предложение о браке")
+    ]
+    await bot.set_my_commands(commands, scope=BotCommandScopeDefault())
     
     app = web.Application()
     app.router.add_get("/", handle)
