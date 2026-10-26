@@ -516,10 +516,10 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
                 text += (
                     f"🏎 Ваша машина: **{active_car['car_name']}** ({active_car['color']})\n"
                     f"⚡ Тюнинг (Двиг {active_car['engine_lvl']} | Турбо {active_car['turbo_lvl']} | Руль {active_car['handling_lvl']})\n\n"
-                    f"🏆 Гонки проходят против машин других реальных игроков! Ставка: 1,000 🪙."
+                    f"🏆 Вы можете запустить стандартный заезд (ставка 1,000 🪙) или указать любую ставку через команду: `/race <ставка>` (например, `/race 5000`), ответив ей на сообщение соперника!"
                 )
                 kb = InlineKeyboardMarkup(inline_keyboard=[
-                    [InlineKeyboardButton(text="🔥 Начать заезд с игроком (1,000 🪙)", callback_data="start_street_race")],
+                    [InlineKeyboardButton(text="🔥 Быстрый заезд (1,000 🪙)", callback_data="start_street_race")],
                     [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
                 ])
             try:
@@ -650,6 +650,144 @@ async def callback_main_menu(callback: types.CallbackQuery, state: FSMContext):
     except Exception as e:
         logging.error(f"Error in callback_main_menu: {e}")
         await callback.answer("❌ Произошла ошибка!", show_alert=True)
+
+# --- ИНВЕНТАРЬ И ПРЕДМЕТЫ ---
+@dp.callback_query(F.data.startswith("use_item_"))
+async def use_inventory_item(callback: types.CallbackQuery, state: FSMContext):
+    parts = callback.data.split("_")
+    if len(parts) < 4:
+        await callback.answer("❌ Ошибка предмета!", show_alert=True)
+        return
+    idx = int(parts[2])
+    item_key = "_".join(parts[3:])
+    
+    p = await get_profile(callback.from_user)
+    uid = str(callback.from_user.id)
+    inv_str = p.get("inventory") or ""
+    items = [i.strip() for i in inv_str.split(",") if i.strip()]
+    
+    if idx >= len(items) or items[idx] != item_key:
+        await callback.answer("❌ Предмет не найден в инвентаре!", show_alert=True)
+        callback.data = f"menu_inv_{uid}"
+        await callback_main_menu(callback, state)
+        return
+        
+    items.pop(idx)
+    new_inv = ",".join(items)
+    
+    coins = p.get("coins", 0)
+    xp = p.get("xp", 0)
+    respect = p.get("respect", 0)
+    smoke_lvl = p.get("smoking_level", 0)
+    
+    effect_text = ""
+    if item_key == "energy":
+        xp += 50
+        effect_text = "⚡ Вы выпили энергетик! (+50 XP)"
+    elif item_key == "pizza":
+        xp += 30
+        coins += 20
+        effect_text = "🍔 Вы съели пиццу! (+30 XP, +20 🪙)"
+    elif item_key == "beer_okhota":
+        earned = random.randint(50, 200)
+        coins += earned
+        effect_text = f"🍺 Вы выпили Охоту Крепкое! Настроение поднялось (+{earned} 🪙)"
+    elif item_key == "vodka":
+        if random.random() > 0.5:
+            win = 500
+            coins += win
+            effect_text = f"🥃 Паленая водка ударила в голову! Вы нашли заначку (+{win} 🪙)"
+        else:
+            loss = min(300, coins)
+            coins -= loss
+            effect_text = f"🥃 От паленой водки стало плохо... Потеряно {loss} 🪙"
+    elif item_key == "pc":
+        respect += 150
+        effect_text = "💻 Вы установили мощный игровой ПК! (+150 респекта)"
+    elif item_key == "cigars":
+        smoke_lvl += 1
+        respect += 5
+        effect_text = f"🚬 Вы выкурили сигарету. (Никотиновая зависимость ур. {smoke_lvl}, +5 респекта)"
+    elif item_key == "hookah":
+        xp += 80
+        effect_text = "💨 Густой дым кальяна расслабил вас! (+80 XP)"
+    elif item_key == "chips":
+        xp += 15
+        effect_text = "🍟 Хрустящие чипсы дали сил! (+15 XP)"
+    elif item_key == "whiskey":
+        respect += 40
+        coins += 50
+        effect_text = "🥃 Элитный виски добавил солидности! (+40 респекта, +50 🪙)"
+    elif item_key == "chair":
+        respect += 100
+        effect_text = "💺 Геймерское кресло обеспечило комфорт! (+100 респекта)"
+    elif item_key.startswith("sex_"):
+        sex_item = SEX_SHOP.get(item_key, {"name": "Игрушка"})
+        respect += 25
+        effect_text = f"🍑 Вы использовали «{sex_item['name']}»! Получено море эмоций (+25 респекта)"
+    else:
+        effect_text = f"🎁 Вы использовали предмет `{item_key}`!"
+
+    new_level = p.get("level", 1)
+    for lvl, d in sorted(LEVELS.items(), key=lambda x: x[0]):
+        if xp >= d["xp"]: new_level = lvl
+
+    def _upd():
+        supabase.table("users").update({
+            "inventory": new_inv,
+            "coins": coins,
+            "xp": xp,
+            "respect": respect,
+            "smoking_level": smoke_lvl,
+            "level": new_level
+        }).eq("user_id", uid).execute()
+    await asyncio.to_thread(_upd)
+    
+    await callback.answer(effect_text, show_alert=True)
+    callback.data = f"menu_inv_{uid}"
+    await callback_main_menu(callback, state)
+
+# --- ОРУЖЕЙНАЯ И ЭКИПИРОВКА ---
+@dp.callback_query(F.data.startswith("equip_item_"))
+async def equip_item_handler(callback: types.CallbackQuery, state: FSMContext):
+    parts = callback.data.split("_")
+    if len(parts) < 4:
+        await callback.answer("❌ Ошибка снаряжения!", show_alert=True)
+        return
+    eq_key = "_".join(parts[3:])
+    uid = str(callback.from_user.id)
+    
+    p = await get_profile(callback.from_user)
+    armory_str = p.get("armory") or ""
+    items = [i.strip() for i in armory_str.split(",") if i.strip()]
+    
+    if eq_key not in items:
+        await callback.answer("❌ У вас нет этого предмета в оружейной!", show_alert=True)
+        return
+        
+    def _upd():
+        supabase.table("users").update({"equipped_item": eq_key}).eq("user_id", uid).execute()
+    await asyncio.to_thread(_upd)
+    
+    eq_data = SHOP_EQUIPMENT.get(eq_key, {"name": eq_key})
+    await callback.answer(f"✅ Вы надели: {eq_data['name']}!", show_alert=True)
+    callback.data = f"menu_armory_{uid}"
+    await callback_main_menu(callback, state)
+
+@dp.callback_query(F.data.startswith("unequip_item_"))
+async def unequip_item_handler(callback: types.CallbackQuery, state: FSMContext):
+    uid = callback.data.split("_")[2]
+    if str(callback.from_user.id) != uid:
+        await callback.answer("❌ Это не ваше меню!", show_alert=True)
+        return
+        
+    def _upd():
+        supabase.table("users").update({"equipped_item": ""}).eq("user_id", uid).execute()
+    await asyncio.to_thread(_upd)
+    
+    await callback.answer("🛑 Экипировка снята.", show_alert=True)
+    callback.data = f"menu_armory_{uid}"
+    await callback_main_menu(callback, state)
 
 # --- ПРОСМОТР ЧУЖОГО ПРОФИЛЯ ---
 @dp.callback_query(F.data.startswith("view_profile_"))
@@ -996,43 +1134,84 @@ async def set_car_color(callback: types.CallbackQuery):
     callback.data = f"car_tune_{car_id}"
     await car_tune_menu(callback)
 
-# --- УЛИЧНЫЕ ГОНКИ МЕЖДУ РЕАЛЬНЫМИ ИГРОКАМИ ---
-@dp.callback_query(F.data == "start_street_race")
-async def start_street_race(callback: types.CallbackQuery):
-    uid = str(callback.from_user.id)
+# --- УЛИЧНЫЕ ГОНКИ (КАСТОМНЫЕ СТАВКИ И ВЫЗОВЫ) ---
+@dp.message(Command("race"))
+async def cmd_race_custom(message: types.Message):
+    args = message.text.split()
+    uid = str(message.from_user.id)
+    p = await get_profile(message.from_user)
+    
+    if len(args) < 2:
+        await message.answer("❌ Использование: `/race <ставка>` (например, `/race 5000`). Ответьте этой командой на сообщение соперника, чтобы бросить ему вызов!", parse_mode=ParseMode.MARKDOWN)
+        return
+    try:
+        bet = int(args[1])
+        if bet <= 0:
+            raise ValueError()
+    except ValueError:
+        await message.answer("❌ Неверная сумма ставки!", parse_mode=ParseMode.MARKDOWN)
+        return
+
+    if p.get("coins", 0) < bet:
+        await message.answer(f"❌ Недостаточно монет! У вас на балансе `{p.get('coins', 0):,}` 🪙", parse_mode=ParseMode.MARKDOWN)
+        return
+
     now = time.time()
     if now - RACE_COOLDOWNS.get(uid, 0) < 30:
         rem = int(30 - (now - RACE_COOLDOWNS.get(uid, 0)))
-        await callback.answer(f"⏳ Ваша машина остывает после гонки. Подождите {rem} сек.", show_alert=True)
-        return
-
-    p = await get_profile(callback.from_user)
-    if p.get("coins", 0) < 1000:
-        await callback.answer("❌ Для участия в заезде нужно минимум 1,000 🪙!", show_alert=True)
+        await message.answer(f"⏳ Ваша машина остывает после гонки. Подождите {rem} сек.", parse_mode=ParseMode.MARKDOWN)
         return
 
     def _get_active():
         return supabase.table("user_cars").select("*").eq("user_id", uid).eq("is_active", True).execute()
     res = await asyncio.to_thread(_get_active)
     if not res.data:
-        await callback.answer("❌ У вас нет активной машины! Выберите машину в гараже.", show_alert=True)
+        await message.answer("❌ У вас нет активной машины! Выберите ее в гараже через меню.", parse_mode=ParseMode.MARKDOWN)
         return
     my_car = res.data[0]
 
-    def _get_opponents():
-        return supabase.table("user_cars").select("*").eq("is_active", True).neq("user_id", uid).execute()
-    opp_res = await asyncio.to_thread(_get_opponents)
+    if message.reply_to_message:
+        target_user = message.reply_to_message.from_user
+        target_id = str(target_user.id)
+        if target_id == uid:
+            await message.answer("❌ Нельзя бросить вызов самому себе!")
+            return
+        if target_user.is_bot:
+            await message.answer("❌ Нельзя соревноваться с ботом!")
+            return
+        
+        p_target = await get_profile_by_id(target_id)
+        if not p_target or p_target.get("coins", 0) < bet:
+            await message.answer(f"❌ У соперника **{target_user.first_name}** недостаточно монет для такой ставки ({bet:,} 🪙)!", parse_mode=ParseMode.MARKDOWN)
+            return
 
-    if not opp_res.data:
-        await callback.answer("❌ Сейчас нет других игроков с активными машинами в сети! Пригласите друзей в бота.", show_alert=True)
-        return
-
-    opponent_car = random.choice(opp_res.data)
-
-    def _get_opp_user():
-        return supabase.table("users").select("username").eq("user_id", opponent_car["user_id"]).execute()
-    opp_user_res = await asyncio.to_thread(_get_opp_user)
-    opp_username = opp_user_res.data[0]["username"] if opp_user_res.data else "Игрок"
+        def _get_target_car():
+            return supabase.table("user_cars").select("*").eq("user_id", target_id).eq("is_active", True).execute()
+        t_car_res = await asyncio.to_thread(_get_target_car)
+        if not t_car_res.data:
+            await message.answer(f"❌ У соперника **{target_user.first_name}** нет активной машины в гараже!", parse_mode=ParseMode.MARKDOWN)
+            return
+        opponent_car = t_car_res.data[0]
+        opp_username = target_user.first_name
+        target_coins = p_target.get("coins", 0)
+    else:
+        def _get_opponents():
+            return supabase.table("user_cars").select("*").eq("is_active", True).neq("user_id", uid).execute()
+        opp_res = await asyncio.to_thread(_get_opponents)
+        if not opp_res.data:
+            await message.answer("❌ Сейчас нет других игроков с активными машинами в сети! Пригласите друзей в бота.", parse_mode=ParseMode.MARKDOWN)
+            return
+        opponent_car = random.choice(opp_res.data)
+        target_id = opponent_car["user_id"]
+        def _get_opp_user():
+            return supabase.table("users").select("username, coins").eq("user_id", target_id).execute()
+        opp_user_res = await asyncio.to_thread(_get_opp_user)
+        opp_data = opp_user_res.data[0] if opp_user_res.data else {"username": "Игрок", "coins": 5000000}
+        opp_username = opp_data["username"]
+        target_coins = opp_data["coins"]
+        if target_coins < bet:
+            await message.answer(f"❌ У соперника недостаточно монет для ставки {bet:,} 🪙", parse_mode=ParseMode.MARKDOWN)
+            return
 
     RACE_COOLDOWNS[uid] = now
 
@@ -1044,26 +1223,31 @@ async def start_street_race(callback: types.CallbackQuery):
 
     win = my_power >= opp_power
 
+    my_new_coins = p.get("coins", 0) - bet
+    target_new_coins = target_coins - bet
+
     if win:
-        reward = random.randint(2000, 6000)
-        xp_gain = 40
-        new_coins = p["coins"] - 1000 + reward
+        reward = bet * 2
+        my_new_coins += reward
+        xp_gain = max(20, int(bet / 500))
         new_xp = p.get("xp", 0) + xp_gain
         result_text = (
-            f"🏁 **ПОБЕДА В ГОНКЕ ПРОТИВ ИГРОКА!** 🎉\n\n"
+            f"🏁 **ПОБЕДА В УЛИЧНОЙ ГОНКЕ!** 🎉\n\n"
             f"🏎 Ваша машина: **{my_car['car_name']}** ({my_car['color']})\n"
-            f"🚗 Соперник (**{opp_username}**): **{opponent_car['car_name']}** ({opponent_car['color']})\n\n"
+            f"🚗 Соперник (**{opp_username}**): **{opponent_car['car_name']}** ({opponent_car['color']})\n"
+            f"💵 Ставка: `{bet:,}` 🪙\n\n"
             f"💰 Выигрыш: `+{reward:,}` 🪙\n"
             f"✨ Опыт: `+{xp_gain} XP`"
         )
     else:
-        new_coins = p["coins"] - 1000
-        new_xp = p.get("xp", 0) + 10
+        target_new_coins += bet * 2
+        xp_gain = 10
+        new_xp = p.get("xp", 0) + xp_gain
         result_text = (
             f"🏁 **ПОРАЖЕНИЕ В ГОНКЕ...** 💨\n\n"
             f"🏎 Ваша машина: **{my_car['car_name']}** ({my_car['color']})\n"
             f"🚗 Соперник (**{opp_username}**): **{opponent_car['car_name']}** ({opponent_car['color']})\n\n"
-            f"💸 Ставка сгорела: `-1,000 🪙`\n"
+            f"💸 Ставка проиграна: `-{bet:,}` 🪙\n"
             f"✨ Опыт утешения: `+10 XP`"
         )
 
@@ -1071,18 +1255,19 @@ async def start_street_race(callback: types.CallbackQuery):
     for lvl, d in sorted(LEVELS.items(), key=lambda x: x[0]):
         if new_xp >= d["xp"]: new_level = lvl
 
-    def _save():
-        supabase.table("users").update({"coins": new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute()
-    await asyncio.to_thread(_save)
+    def _save_race():
+        supabase.table("users").update({"coins": my_new_coins, "xp": new_xp, "level": new_level}).eq("user_id", uid).execute()
+        supabase.table("users").update({"coins": target_new_coins}).eq("user_id", str(target_id)).execute()
+    await asyncio.to_thread(_save_race)
 
-    kb = InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🏁 Еще гонка с игроком", callback_data="start_street_race")],
-        [InlineKeyboardButton(text="🔙 В меню", callback_data=f"back_home_{uid}")]
-    ])
-    try:
-        await callback.message.edit_text(result_text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
-    except TelegramBadRequest:
-        await callback.answer()
+    await message.answer(result_text, parse_mode=ParseMode.MARKDOWN)
+
+@dp.callback_query(F.data == "start_street_race")
+async def start_street_race_callback(callback: types.CallbackQuery):
+    # Быстрый заезд со стандартной ставкой 1,000 из меню
+    callback.message.text = "/race 1000"
+    await cmd_race_custom(callback.message)
+    await callback.answer()
 
 # --- МАГАЗИНЫ И ИМУЩЕСТВО ---
 @dp.callback_query(F.data.startswith("shop_eq_list_"))
@@ -1487,6 +1672,142 @@ async def cmd_duel(message: types.Message, state: FSMContext):
     winner = random.choices([user1, user2], weights=[score1, score2], k=1)[0]
     await message.answer(f"⚔️ **ДУЭЛЬ!**\n\n🏆 Победитель: **{winner.first_name}**! 🎉", parse_mode=ParseMode.MARKDOWN)
 
+# --- ОТНОШЕНИЯ, СЕМЬЯ И СЕКС ---
+@dp.message(Command("marry"))
+async def cmd_marry(message: types.Message):
+    if not message.reply_to_message:
+        await message.answer("💍 Чтобы сделать предложение, ответьте на сообщение любимого человека командой `/marry`", parse_mode=ParseMode.MARKDOWN)
+        return
+    user1 = message.from_user
+    user2 = message.reply_to_message.from_user
+    if user1.id == user2.id:
+        await message.answer("❌ Нельзя жениться на самом себе!")
+        return
+    if user2.is_bot:
+        await message.answer("❌ Нельзя жениться на боте!")
+        return
+        
+    p1 = await get_profile(user1)
+    p2 = await get_profile(user2)
+    
+    if p1.get("partner_id") and str(p1.get("partner_id")) != "0":
+        await message.answer("❌ Вы уже состоите в браке! Сначала разведитесь.")
+        return
+    if p2.get("partner_id") and str(p2.get("partner_id")) != "0":
+        await message.answer("❌ Этот игрок уже состоит в браке!")
+        return
+        
+    now = int(time.time())
+    def _marry():
+        supabase.table("users").update({"partner_id": str(user2.id), "partner_name": user2.first_name, "marriage_time": now}).eq("user_id", str(user1.id)).execute()
+        supabase.table("users").update({"partner_id": str(user1.id), "partner_name": user1.first_name, "marriage_time": now}).eq("user_id", str(user2.id)).execute()
+    await asyncio.to_thread(_marry)
+    
+    await message.answer(f"💍 **ПОЗДРАВЛЯЕМ!** 🎉\n\n**{user1.first_name}** и **{user2.first_name}** официально заключили брак! Любви и счастья молодой семье!", parse_mode=ParseMode.MARKDOWN)
+
+@dp.message(Command("divorce"))
+async def cmd_divorce_msg(message: types.Message):
+    await process_divorce(message.from_user, message)
+
+@dp.callback_query(F.data == "action_divorce")
+async def callback_divorce(callback: types.CallbackQuery, state: FSMContext):
+    await process_divorce(callback.from_user, callback.message, callback=callback)
+    uid = str(callback.from_user.id)
+    callback.data = f"menu_marry_{uid}"
+    await callback_main_menu(callback, state)
+
+async def process_divorce(user, message_obj, callback=None):
+    uid = str(user.id)
+    p = await get_profile(user)
+    pid = p.get("partner_id")
+    if not pid or str(pid) == "0":
+        if callback:
+            await callback.answer("❌ Вы не состоите в браке!", show_alert=True)
+        else:
+            await message_obj.answer("❌ Вы не состоите в браке!")
+        return
+        
+    def _div():
+        supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY", "marriage_time": 0}).eq("user_id", uid).execute()
+        supabase.table("users").update({"partner_id": 0, "partner_name": "EMPTY", "marriage_time": 0}).eq("user_id", str(pid)).execute()
+    await asyncio.to_thread(_div)
+    
+    text = "💔 Вы успешно развелись."
+    if callback:
+        await callback.answer(text, show_alert=True)
+    else:
+        await message_obj.answer(text)
+
+@dp.message(Command("sex"))
+async def cmd_sex(message: types.Message):
+    await handle_sex(message.from_user, message)
+
+@dp.callback_query(F.data == "action_sex_menu")
+async def callback_sex_menu(callback: types.CallbackQuery):
+    await handle_sex(callback.from_user, callback.message, callback=callback)
+
+async def handle_sex(user, message_obj, callback=None):
+    uid = str(user.id)
+    now = time.time()
+    if now - INTIMATE_COOLDOWNS.get(uid, 0) < 300:
+        rem = int(300 - (now - INTIMATE_COOLDOWNS.get(uid, 0)))
+        text = f"⏳ Вы слишком устали. Отдохните еще {rem // 60} мин. {rem % 60} сек."
+        if callback:
+            await callback.answer(text, show_alert=True)
+        else:
+            await message_obj.answer(text)
+        return
+
+    p = await get_profile(user)
+    pid = p.get("partner_id")
+    if not pid or str(pid) == "0":
+        text = "❌ У вас нет партнера! Сначала найдите вторую половинку через `/marry`."
+        if callback:
+            await callback.answer(text, show_alert=True)
+        else:
+            await message_obj.answer(text)
+        return
+
+    INTIMATE_COOLDOWNS[uid] = now
+    coins_bonus = random.randint(100, 400)
+    respect_bonus = 10
+    new_coins = p.get("coins", 0) + coins_bonus
+    new_resp = p.get("respect", 0) + respect_bonus
+
+    def _upd():
+        supabase.table("users").update({"coins": new_coins, "respect": new_resp}).eq("user_id", uid).execute()
+    await asyncio.to_thread(_upd)
+
+    text = f"🍑 Вы страстно уединились с **{p.get('partner_name')}**!\n\n💰 Получено: `+{coins_bonus}` 🪙\n❤️ Респект: `+{respect_bonus}`"
+    if callback:
+        await callback.message.answer(text, parse_mode=ParseMode.MARKDOWN)
+        await callback.answer("🔥 Страстная ночь!")
+    else:
+        await message_obj.answer(text, parse_mode=ParseMode.MARKDOWN)
+
+@dp.callback_query(F.data == "family_main")
+async def family_main_menu(callback: types.CallbackQuery):
+    uid = str(callback.from_user.id)
+    p = await get_profile(callback.from_user)
+    pname = p.get("partner_name", "Свободен")
+    text = (
+        f"🏡 **СЕМЕЙНЫЙ ОЧАГ И ДЕТИ**\n\n"
+        f"💍 Партнер: **{pname}**\n"
+        f"👶 Дети: Функция в разработке\n"
+        f"💰 Семейный бюджет общий\n\n"
+        f"Используйте `/sex` для уединения или кнопки ниже:"
+    )
+    kb = InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🍑 Уединиться", callback_data="action_sex_menu")],
+        [InlineKeyboardButton(text="💔 Развестись", callback_data="action_divorce")],
+        [InlineKeyboardButton(text="🔙 Назад в меню", callback_data=f"back_home_{uid}")]
+    ])
+    try:
+        await callback.message.edit_text(text, reply_markup=kb, parse_mode=ParseMode.MARKDOWN)
+    except TelegramBadRequest:
+        await callback.answer()
+    await callback.answer()
+
 # --- АДМИН-МЕНЮ И УНИВЕРСАЛЬНЫЕ АДМИН-КОМАНДЫ ---
 @dp.message(Command("admin"))
 async def cmd_admin_menu(message: types.Message):
@@ -1650,7 +1971,6 @@ async def handle(request):
 async def main():
     await bot.delete_webhook(drop_pending_updates=True)
     
-    # Запускаем мини-сервер для Render, чтобы он зафиксировал открытый порт и завершил деплой
     app = web.Application()
     app.router.add_get("/", handle)
     runner = web.AppRunner(app)
